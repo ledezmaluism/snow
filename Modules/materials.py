@@ -1,6 +1,4 @@
-'''
-This blocks defines the main function and materials used throughout.
-'''
+import numpy as np
 
 def sellmeier(A, B, wl):
     '''
@@ -62,6 +60,6 @@ def refractive_index(material, wl):
         A = np.array([2.9804, 0.5981, 8.9543])
         B = np.array([0.02047, 0.0666, 416.08])
     else:
-        print('wrong material')
+        print('wrong material...?')
 
     return sellmeier(A, B, wl)
