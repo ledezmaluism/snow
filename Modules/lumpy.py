@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Feb 13 21:06:34 2019
-@author: luish
+@author: luis ledezma
 
 
 LUMPY: python module for simulations with Lumerical
+
+to do: 
+    replace functions for drawing waveguides for native lumerical function
+    https://kb.lumerical.com/ref_sim_obj_structures_-_waveguide.html
 
 """
 import numpy as np
