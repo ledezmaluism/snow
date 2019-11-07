@@ -8,12 +8,8 @@ Module to calculate waveguide parameters semi-analytically
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import LNOI_functions as lumpy
-import time
-
-from scipy.optimize import fsolve, brentq
-from scipy.constants import pi, c
+from scipy.optimize import brentq
+from scipy.constants import pi
 
 def beta_f(kx, ky, n, k0):
     '''
@@ -153,51 +149,51 @@ def neff_ridge():
     pass
 # =============================================================================
 # #Geometric variables:
-start_time = time.time()
-h_ridge = 0.7
-width = 1.5
-hslab = 0.45
-n0 = 1
-freq_list = np.arange(140,310,5)
-#wl_list = np.arange(1,1.5,0.1)
-wl_list = (c/freq_list)*1e-6
-neff_te0 = np.zeros(wl_list.shape)
-for kw in range(wl_list.size):
-    wl = wl_list[kw]
-    n1e = lumpy.refractive_index('LN_MgO_e', wl)
-    n1o = lumpy.refractive_index('LN_MgO_o', wl)
-    n2 = lumpy.refractive_index('SiO2', wl)
+# start_time = time.time()
+# h_ridge = 0.7
+# width = 1.5
+# hslab = 0.45
+# n0 = 1
+# freq_list = np.arange(140,310,5)
+# #wl_list = np.arange(1,1.5,0.1)
+# wl_list = (c/freq_list)*1e-6
+# neff_te0 = np.zeros(wl_list.shape)
+# for kw in range(wl_list.size):
+#     wl = wl_list[kw]
+#     n1e = mat.refractive_index('LN_MgO_e', wl)
+#     n1o = mat.refractive_index('LN_MgO_o', wl)
+#     n2 = mat.refractive_index('SiO2', wl)
     
-    neff_slab_te0 = neff_asymmetric_slab(n0, n1e, n2, hslab, wl)
-    neff_ridge_te0 = neff_asymmetric_slab(n0, n1e, n2, h_ridge, wl)
+#     neff_slab_te0 = neff_asymmetric_slab(n0, n1e, n2, hslab, wl)
+#     neff_ridge_te0 = neff_asymmetric_slab(n0, n1e, n2, h_ridge, wl)
     
-    neff_te0[kw] = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, width, wl, 'TM even')
-elapsed_time_2 = time.time() - start_time
+#     neff_te0[kw] = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, width, wl, 'TM even')
+# elapsed_time_2 = time.time() - start_time
 
 
-#Comparison with Lumerical
-data = np.load('LNoI_freq_sweep_h_LN_0p7_width_1p5_1572550198.npz')
-neff_lumerical = data['neff']
+# #Comparison with Lumerical
+# data = np.load('LNoI_freq_sweep_h_LN_0p7_width_1p5_1572550198.npz')
+# neff_lumerical = data['neff']
 
-error = abs(neff_lumerical-neff_te0)/neff_lumerical*100
+# error = abs(neff_lumerical-neff_te0)/neff_lumerical*100
 
-fig, ax = plt.subplots()
-ax.plot(freq_list, neff_lumerical, label='lumerical')
-ax.plot(freq_list, neff_te0, label='python')
-ax.legend()
-ax.grid(True)
-ax.set_xlabel('Frequency (THz)')
-ax.set_ylabel('Effective index $n_{eff}$')
-ax.axis([140, 310, 1.8, 2.1])
-ax.set_title('h_slab = %0.0f nm, h_ridge = %0.0f nm, Width = %0.2f $\mu$m' %(hslab*1000, h_ridge*1000, width))
+# fig, ax = plt.subplots()
+# ax.plot(freq_list, neff_lumerical, label='lumerical')
+# ax.plot(freq_list, neff_te0, label='python')
+# ax.legend()
+# ax.grid(True)
+# ax.set_xlabel('Frequency (THz)')
+# ax.set_ylabel('Effective index $n_{eff}$')
+# ax.axis([140, 310, 1.8, 2.1])
+# ax.set_title('h_slab = %0.0f nm, h_ridge = %0.0f nm, Width = %0.2f $\mu$m' %(hslab*1000, h_ridge*1000, width))
 
-fig2, ax2 = plt.subplots()
-ax2.plot(freq_list, error)
-ax2.set_xlabel('Frequency (THz)')
-ax2.set_ylabel('Relative error (%)')
-ax2.set_title('Relative Error = (100%)|n_lumerical - n_python|/n_lumerical')
-ax2.axis([140, 310, 0, 1])
-ax2.grid(True)
+# fig2, ax2 = plt.subplots()
+# ax2.plot(freq_list, error)
+# ax2.set_xlabel('Frequency (THz)')
+# ax2.set_ylabel('Relative error (%)')
+# ax2.set_title('Relative Error = (100%)|n_lumerical - n_python|/n_lumerical')
+# ax2.axis([140, 310, 0, 1])
+# ax2.grid(True)
 
 
 

@@ -8,7 +8,7 @@ Created on Mon Nov 19 09:12:11 2018
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, lfilter
-from scipy.constants import c,pi,mu_0,epsilon_0
+from scipy.constants import pi
 
 def FourierThis(x,dt,NFFT=2048,N=1):
     #Split the input signal in N parts (reducing the sampling rate N times)
@@ -30,6 +30,22 @@ def FourierThis(x,dt,NFFT=2048,N=1):
     
     X = X/np.sqrt(N)    
     return X, freqs
+
+def FTX(x,dt,NFFT=2048):
+    #Calculates the Fourier Transform for real time signals
+    Fs =  1/dt
+    Nfreqs = int(NFFT/2+1)
+    freqs = np.linspace(0.0,Fs/2,Nfreqs)
+    X = np.fft.rfft(x, NFFT)
+    return X, freqs
+
+def IFTX(X,df,NFFT=2048):
+    #Calculates the Fourier Transform for real time signals
+    dt =  1/df
+    Nt = NFFT
+    times = np.linspace(0.0, dt, Nt)
+    X = np.fft.irfft(X, NFFT)
+    return X, times
 
 def FourierEnergy(X):
     #Calculate the energy of a one-sided Fourier transform
