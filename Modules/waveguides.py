@@ -142,78 +142,13 @@ def number_of_modes():
     '''
     pass
 
-def neff_ridge():
+def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
     Returns neff based on the effective index method
     '''
-    pass
-# =============================================================================
-# #Geometric variables:
-# start_time = time.time()
-# h_ridge = 0.7
-# width = 1.5
-# hslab = 0.45
-# n0 = 1
-# freq_list = np.arange(140,310,5)
-# #wl_list = np.arange(1,1.5,0.1)
-# wl_list = (c/freq_list)*1e-6
-# neff_te0 = np.zeros(wl_list.shape)
-# for kw in range(wl_list.size):
-#     wl = wl_list[kw]
-#     n1e = mat.refractive_index('LN_MgO_e', wl)
-#     n1o = mat.refractive_index('LN_MgO_o', wl)
-#     n2 = mat.refractive_index('SiO2', wl)
-    
-#     neff_slab_te0 = neff_asymmetric_slab(n0, n1e, n2, hslab, wl)
-#     neff_ridge_te0 = neff_asymmetric_slab(n0, n1e, n2, h_ridge, wl)
-    
-#     neff_te0[kw] = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, width, wl, 'TM even')
-# elapsed_time_2 = time.time() - start_time
-
-
-# #Comparison with Lumerical
-# data = np.load('LNoI_freq_sweep_h_LN_0p7_width_1p5_1572550198.npz')
-# neff_lumerical = data['neff']
-
-# error = abs(neff_lumerical-neff_te0)/neff_lumerical*100
-
-# fig, ax = plt.subplots()
-# ax.plot(freq_list, neff_lumerical, label='lumerical')
-# ax.plot(freq_list, neff_te0, label='python')
-# ax.legend()
-# ax.grid(True)
-# ax.set_xlabel('Frequency (THz)')
-# ax.set_ylabel('Effective index $n_{eff}$')
-# ax.axis([140, 310, 1.8, 2.1])
-# ax.set_title('h_slab = %0.0f nm, h_ridge = %0.0f nm, Width = %0.2f $\mu$m' %(hslab*1000, h_ridge*1000, width))
-
-# fig2, ax2 = plt.subplots()
-# ax2.plot(freq_list, error)
-# ax2.set_xlabel('Frequency (THz)')
-# ax2.set_ylabel('Relative error (%)')
-# ax2.set_title('Relative Error = (100%)|n_lumerical - n_python|/n_lumerical')
-# ax2.axis([140, 310, 0, 1])
-# ax2.grid(True)
-
-
-
-# #First TM
-# #Vertical step
-#neff_slab_tm0 = neff_asymmetric_slab(n0, n1o, n2, hslab, wl, mode='TM')
-#neff_ridge_tm0 = neff_asymmetric_slab(n0, n1o, n2, h_ridge, wl, mode='TM')
-# #Horizontal step
-#neff_tm0 = neff_symmetric_slab(neff_slab_tm0, neff_ridge_tm0, width, wl, 'TE even')
-
-#TE01
-#Vertical step
-#neff_slab_te1 = neff_asymmetric_slab(n0, n1e, n2, hslab, wl, order=1)
-#neff_ridge_te1 = neff_asymmetric_slab(n0, n1e, n2, h_ridge, wl, order=1)
-#Horizontal step
-# neff_te01 = neff_symmetric_slab(neff_slab_te1, neff_ridge_te1, width, wl, 'TM even')
-
-# TM10
-# #Vertical step
-# neff_slab_tm01 = neff_asymmetric_slab(n0, n1o, n2, hslab, wl, mode='TM')
-# neff_ridge_tm01 = neff_asymmetric_slab(n0, n1o, n2, h_ridge, wl, mode='TM')
-# Horizontal step
-# neff_tm01 = neff_symmetric_slab(neff_slab_tm0, neff_ridge_tm0, width, wl, 'TE even', order=1)
+    if mode=='TE':
+        neff_slab_te0 = neff_asymmetric_slab(nclad, nridge, nbox, hslab, wl)
+        neff_ridge_te0 = neff_asymmetric_slab(nclad, nridge, nbox, h, wl)
+        # neff = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, w, wl, 'TM even')
+        neff = neff_asymmetric_slab(neff_slab_te0, neff_ridge_te0, neff_slab_te0, w, wl, 'TM even')
+    return neff
