@@ -74,52 +74,59 @@ def detector(y_field, fs, bw=100e9, order=6):
     y_detect = butter_lowpass_filter(y_field**2, bw, fs, order)
     return y_detect
 
-###############################################################################
-###############################################################################
+def derivative( f, x, n, h ):
+    """Richardson's Extrapolation to approximate  f'(x) at a particular x.
 
-# Test function for module  
-def _test_FourierThis():
-    
-    #Create signal
-    f0 = 1e9
-    w = 2*pi*f0
-    bw = 0.1e9; #Aprox
-    Fs = 20*f0
-    
-    tau = 1/bw;
-    t0 = 5*tau    
-    dt = 1/Fs
-    N = 2000
-    t = np.arange(0,N*dt,dt)
-    x = np.sin(w*t)*np.exp(-((t-t0)/tau)**2)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(t,x)
-    ax.set_title('Time-domain signal')
-    
-    #Analyze
-    X,freqs = FourierThis(x,dt)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(freqs,np.abs(X))
-    ax.set_title('Raw analysis')
-    
-    #Split analysis
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.set_title('Split analysis')
-    
-    X,freqs = FourierThis(x,dt,N=1) 
-    ax.plot(freqs,np.abs(X))
-    
-    X,freqs = FourierThis(x,dt,N=2)
-    ax.plot(freqs,np.abs(X))
-    
-    X,freqs = FourierThis(x,dt,N=4)
-    ax.plot(freqs,np.abs(X))
-    
-    ax.legend(['N=1', 'N=2', 'N=4'])
-    ax.set_xlim(0.85e9,1.15e9)
+    USAGE:
+	d = richardson( f, x, n, h )
+
+    INPUT:
+	f	- function to find derivative of
+	x	- value of x to find derivative at
+	n	- number of levels of extrapolation
+	h	- initial stepsize
+
+    OUTPUT:
+        numpy float array -  two-dimensional array of extrapolation values.
+                             The [n,n] value of this array should be the
+                             most accurate estimate of f'(x).
+
+    NOTES:                             
+        Based on an algorithm in "Numerical Mathematics and Computing"
+        4th Edition, by Cheney and Kincaid, Brooks-Cole, 1999.
+
+    AUTHOR:
+        Jonathan R. Senning <jonathan.senning@gordon.edu>
+        Gordon College
+        February 9, 1999
+        Converted ty Python August 2008
+    """
+
+    # d[n,n] will contain the most accurate approximation to f'(x).
+
+    d = np.array( [[0] * (n + 1)] * (n + 1), float )
+
+    for i in range( n + 1 ):
+        d[i,0] = 0.5 * ( f( x + h ) - f( x - h ) ) / h
+
+        powerOf4 = 1  # values of 4^j
+        for j in range( 1, i + 1 ):
+            powerOf4 = 4 * powerOf4
+            d[i,j] = d[i,j-1] + ( d[i,j-1] - d[i-1,j-1] ) / ( powerOf4 - 1 )
+
+        h = 0.5 * h
+
+    return d[n,n]
+
+
+
+###############################################################################
+###############################################################################
+def _test_():
+    '''
+    Test function for module  
+    '''
+    pass
 
 if __name__ == '__main__':
-    _test_FourierThis()
+    _test_()
