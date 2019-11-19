@@ -9,7 +9,9 @@ Module to calculate waveguide parameters semi-analytically
 
 import numpy as np
 from scipy.optimize import brentq
-from scipy.constants import pi
+from scipy.constants import pi, c
+
+# import analysis
 
 def beta_f(kx, ky, n, k0):
     '''
@@ -152,3 +154,83 @@ def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
         # neff = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, w, wl, 'TM even')
         neff = neff_asymmetric_slab(neff_slab_te0, neff_ridge_te0, neff_slab_te0, w, wl, 'TM even')
     return neff
+
+def neff_derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
+    '''
+    Finds the derivative of neff at given wavelength
+
+    USAGE:
+	d = neff_derivative(wl, nridge)
+
+    INPUT:
+	wl	- wavelength
+	nridge	- ...
+
+
+    OUTPUT:
+        numpy float neff'
+
+    '''
+    n = 2 #number of extrapolation levels
+    wl_step = 0.001 #Initial step size
+    def f(wl):
+        return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
+
+    return analysis.derivative(f, wl, n, wl_step)
+
+
+def neff_2derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
+    '''
+    Finds the second derivative of neff at given wavelength
+
+    USAGE:
+	d = neff_derivative(wl, nridge)
+
+    INPUT:
+	wl	- wavelength
+	nridge	- ...
+
+
+    OUTPUT:
+        numpy float neff''
+
+    '''
+    n = 2 #number of extrapolation levels
+    wl_step = 0.001 #Initial step size
+    def f(wl):
+        return neff_derivative(wl, nridge, nbox, nclad, w, h, hslab, mode)
+
+    return analysis.derivative(f, wl, n, wl_step)
+
+def ng():
+    '''
+    Group index
+    '''
+    pass
+
+def gvd():
+    '''
+    GVD
+    '''
+    pass
+
+###############################################################################
+###############################################################################
+def _test_():
+    '''
+    Test function for module  
+    '''
+    wl = 1
+    nridge = 2.2
+    nbox = 1.4
+    hslab = 0.45
+    ne = neff_ridge(wl, nridge, nbox, hslab=hslab)
+    np = neff_derivative(wl,nridge,nbox, hslab=hslab)
+    npp = neff_2derivative(wl,nridge,nbox, hslab=hslab)
+    ng = ne - np
+    print(ng)
+    print(c/ng * 1e-8)
+    print(npp)
+
+if __name__ == '__main__':
+    _test_()
