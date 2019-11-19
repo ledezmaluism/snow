@@ -36,10 +36,10 @@ if 'mode' not in vars():
 '''
 Input parameters
 '''
-wavelength = 0.9
-h_LN = 0.7
-h_etch = 0.25
-w_ridge = 0.8
+wavelength = 2.3
+h_LN = 1.2
+h_etch = 0.8
+w_ridge = 1.55
 h_slab = h_LN - h_etch
 
 theta = 60
@@ -62,12 +62,12 @@ finemesh = wavelength/40
 '''
 Materials
 '''
-material_substrate = "SiO2_analytic"
-#material_substrate = "Sapphire_analytic"
+# material_substrate = "SiO2_analytic"
+material_substrate = "Sapphire_analytic"
 
-#material_thinfilm = "LN_analytic_undoped_xne"
+material_thinfilm = "LN_analytic_undoped_xne"
 #material_thinfilm = "LN_analytic_undoped_zne"
-material_thinfilm = "LN_analytic_MgO_doped_xne"
+# material_thinfilm = "LN_analytic_MgO_doped_xne"
 #material_thinfilm = "LN_analytic_MgO_doped_zne"
 #material_thinfilm = "LiNbO3 constant"
 
