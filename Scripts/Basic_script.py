@@ -36,10 +36,10 @@ if 'mode' not in vars():
 '''
 Input parameters
 '''
-wavelength = 2.3
-h_LN = 1.2
-h_etch = 0.8
-w_ridge = 1.55
+wavelength = 3
+h_LN = 0.8
+h_etch = 0.2
+w_ridge = 2.4
 h_slab = h_LN - h_etch
 
 theta = 60
@@ -53,11 +53,13 @@ print('width at the base = %.3f um' %(w_ridge_base))
 Simulation volume
 '''
 w_slab = 10*wavelength + 2*w_ridge
-#w_slab = 20*wavelength + 2*w_ridge
+# w_slab = 20*wavelength + 2*w_ridge
 h_margin = 4*wavelength
 h_substrate = 4*wavelength
+# h_substrate = 8*wavelength
 meshsize = wavelength/20
-finemesh = wavelength/40
+# finemesh = wavelength/40
+finemesh = wavelength/80
 
 '''
 Materials
@@ -65,9 +67,9 @@ Materials
 # material_substrate = "SiO2_analytic"
 material_substrate = "Sapphire_analytic"
 
-material_thinfilm = "LN_analytic_undoped_xne"
+# material_thinfilm = "LN_analytic_undoped_xne"
 #material_thinfilm = "LN_analytic_undoped_zne"
-# material_thinfilm = "LN_analytic_MgO_doped_xne"
+material_thinfilm = "LN_analytic_MgO_doped_xne"
 #material_thinfilm = "LN_analytic_MgO_doped_zne"
 #material_thinfilm = "LiNbO3 constant"
 

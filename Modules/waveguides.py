@@ -11,7 +11,26 @@ import numpy as np
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 
-# import analysis
+import analysis
+
+class waveguide:
+
+    def __init__(self, w_top=1, h_ridge=1, h_slab=0.5, theta=60):
+        #validation
+        etch = h_ridge - h_slab
+        w_base = w_top + 2*etch/np.tan(theta*pi/180)
+        if etch*(w_base-w_top)<0:
+            raise ValueError("Something wrong with this geometry")
+
+        #Attributes given
+        self.w_top = w_top
+        self.h_ridge = h_ridge
+        self.h_slab = h_slab
+        self.theta = theta
+
+        #Attributes calculated
+        self.etch = etch
+        self.w_base = w_base
 
 def beta_f(kx, ky, n, k0):
     '''
