@@ -37,12 +37,12 @@ if 'mode' not in vars():
 Input parameters
 '''
 wavelength = 3
-h_LN = 0.8
-h_etch = 0.2
-w_ridge = 2.4
+h_LN = 1.2
+h_etch = 0.8
+w_ridge = 1.0
 h_slab = h_LN - h_etch
 
-theta = 60
+theta = 45
 wg_length = 10
 w_ridge_base = w_ridge + 2*h_etch/np.tan(theta*pi/180)
 
