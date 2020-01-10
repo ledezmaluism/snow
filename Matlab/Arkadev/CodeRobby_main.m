@@ -17,7 +17,7 @@ for f=1:1:length(pin)
 %dT=[0.75, 0.85, 0.87, 0.89, 0.91, 0.93]; %%%%%% dT can be a matrix, in
 %that case you can study the effect of detuning and find the peak structure
 
-dT=4; % detuning in fs
+dT=-3.5; % detuning in fs
 for q=1:1:length(dT)
 deltaT=dT(q);
 
@@ -46,7 +46,7 @@ nt = 2^12; % number of fft points/ number of discretizations of the fast time ax
 Tmax = 1000; % Extent of the fast time axis in fs
 
 dtau = (2*Tmax)/nt;% step size in fast axis
-step_num=600; % number of round-trips/ also a measure of slow time evolution
+step_num=100; % number of round-trips/ also a measure of slow time evolution
 
 %---tau and omega arrays 
 tau = (-nt/2:nt/2-1)*dtau; % discretization of fast axis
