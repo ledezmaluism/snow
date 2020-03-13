@@ -7,15 +7,15 @@ This is a temporary script file.
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
-from scipy.constants import pi, c
+from scipy.constants import pi, c, h
 
 class pulse:
     
     '''
-    Atributes
+    Some Atributes
     e: time-domain complex amplitude (W^1/2)
     t: time-domain support vector (fs)
-    E: frequency-domain complex amplitude
+    E: frequency-domain complex amplitude (W^1/2)
     f: frequency-domain support vector (baseband, THz)
     wl0: center wavelength (microns)
     
@@ -23,14 +23,19 @@ class pulse:
     
     def __init__(self, t, e, wavelength):
         
-        dt = t[1]-t[0] #Sample spacing
-        NFFT = t.size
+        self.dt = t[1]-t[0] #Sample spacing
+        self.NFFT = t.size
         
         self.t = t
         self.e = e
-        self.E = fft(e, NFFT)
-        self.f = fftfreq(NFFT, dt)*1e3 #THz
+        self.E = fft(e, self.NFFT)
+        
+        self.Emag = np.abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
+        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
+        
+        self.f = fftfreq(self.NFFT, self.dt)*1e3 #THz
         self.omega = 2*pi*self.f
+        self.df = self.f[1]-self.f[0]
         
         self.wl0 = wavelength #microns
         self.f0 = (c*1e6/1e12)/wavelength #THz
@@ -123,56 +128,71 @@ class pulse:
         self.__plot_vs_time(e_phase, ylabel=label, xlim=xlim)
         
     def plot_spectrum(self, label='Spectrum Amplitude (W^1/2 / Hz)', xlim=None):
-        E_mag = np.abs(self.E)
-        self.__plot_vs_freq(E_mag, ylabel=label, xlim=xlim)
+        self.__plot_vs_freq(self.Emag, ylabel=label, xlim=xlim)
         
-    def plot_PSD(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        self.__plot_vs_freq(psd, ylabel=label, xlim=xlim)
+    def plot_ESD(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
+        self.__plot_vs_freq(self.esd, ylabel=label, xlim=xlim)
         
-    def plot_PSD_dB(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        psd_rel = psd/np.amax(psd)
-        psd_dB = 10*np.log10(psd_rel)
-        self.__plot_vs_freq(psd_dB, ylabel=label, xlim=xlim)
+    def plot_ESD_dB(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
+        esd_rel = self.esd/np.amax(self.esd)
+        esd_dB = 10*np.log10(esd_rel)
+        self.__plot_vs_freq(esd_dB, ylabel=label, xlim=xlim)
         
     def plot_spectrum_absfreq(self, label='Spectrum Amplitude (W^1/2 / Hz)', xlim=None):
-        E_mag = np.abs(self.E)
-        self.__plot_vs_freq(E_mag, ylabel=label, xlim=xlim, absfreq=True)
+        self.__plot_vs_freq(self.Emag, ylabel=label, xlim=xlim, absfreq=True)
         
-    def plot_PSD_absfreq(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        self.__plot_vs_freq(psd, ylabel=label, xlim=xlim, absfreq=True)
+    def plot_ESD_absfreq(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
+        self.__plot_vs_freq(self.esd, ylabel=label, xlim=xlim, absfreq=True)
         
-    def plot_PSD_dB_absfreq(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        psd_rel = psd/np.amax(psd)
-        psd_dB = 10*np.log10(psd_rel)
-        self.__plot_vs_freq(psd_dB, ylabel=label, xlim=xlim, absfreq=True)
+    def plot_ESD_dB_absfreq(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
+        esd_rel = self.esd/np.amax(self.esd)
+        esd_dB = 10*np.log10(esd_rel)
+        self.__plot_vs_freq(esd_dB, ylabel=label, xlim=xlim, absfreq=True)
         
     def plot_spectrum_vs_wavelength(self, label='Spectrum Amplitude (W^1/2 / Hz)', xlim=None):
-        E_mag = np.abs(self.E)
-        self.__plot_vs_wavelength(E_mag, ylabel=label, xlim=xlim)
+        self.__plot_vs_wavelength(self.Emag, ylabel=label, xlim=xlim)
         
-    def plot_PSD_vs_wavelength(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        self.__plot_vs_wavelength(psd, ylabel=label, xlim=xlim)
+    def plot_ESD_vs_wavelength(self, label='Energy Spectral Density (W / Hz^2)', xlim=None):
+        self.__plot_vs_wavelength(self.esd, ylabel=label, xlim=xlim)
         
-    def plot_PSD_dB_wavelength(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
-        psd = np.abs(self.E)**2
-        psd_rel = psd/np.amax(psd)
-        psd_dB = 10*np.log10(psd_rel)
-        self.__plot_vs_wavelength(psd_dB, ylabel=label, xlim=xlim)
+    def plot_ESD_dB_wavelength(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
+        esd_rel = self.esd/np.amax(self.esd)
+        esd_dB = 10*np.log10(esd_rel)
+        self.__plot_vs_wavelength(esd_dB, ylabel=label, xlim=xlim)
         
-    def energy(self):
-        pass
+    def energy_td(self):
+        pwr = np.abs(self.e)**2
+        energy = np.sum(pwr)*self.dt*1e-15 #Joules
+        return energy
+    
+    def energy_fd(self):
+        energy = np.sum(self.esd)*self.df*1e12 #Joules
+        return energy
+    
+    def photon_number(self):
+        energy_bins = self.esd*self.df*1e12 #Joules
+        photons_per_bin = energy_bins/(h*self.fabs)
+        return sum(photons_per_bin)
     
     def time_center(self):
         pass
     
-    def photon_number(self):
+    def width_FWHM(self):
         pass
+    
+    def width_rms(self):
+        pass
+    
             
+class nonlinear_element():
+    '''
+    Atributes
+    D: Dispersion vs frequency
+    kappa: nonlinear coefficient
+    L: length (um)
+    h: split-step size
+    '''
+    pass
 
 def nonlinear_operator(a,b,kappa):
     f = ifft(kappa*fft(b*np.conj(a)))
@@ -236,11 +256,12 @@ def opo(b, N, L, h, Da, Db, fb, kappa):
     return a, b_output, evol
 
 if __name__ == '__main__':
-    NFFT = 2**10
+    NFFT = 2**8
     Tmax = 1400 #(fs) (window will go from -Tmax to Tmax)
     t = np.linspace(-Tmax, Tmax, NFFT) 
     tau = 100/1.76
     b = np.sqrt(0.88*4e6/100)/np.cosh(t/tau)
     
-    a = pulse(t, b, 1.0)
-    a.plot_PSD_dB_wavelength()
+    a = pulse(t, b, 2.0)
+    a.plot_ESD_dB_wavelength()
+    
