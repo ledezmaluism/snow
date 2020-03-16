@@ -38,14 +38,14 @@ def waveguide(width = 1, length = 10, layer = 1):
         WAVEGUIDE OBJECT
 
     '''
-    WG = Device('waveguide')
+    WG = Device('Waveguide')
     WG.add_polygon( [(0, 0), (length, 0), (length, width), (0, width)] , layer=layer)
-    WG.add_port(name = 'wgport1', midpoint = [0,width/2], width = width, orientation = 180)
-    WG.add_port(name = 'wgport2', midpoint = [length,width/2], width = width, orientation = 0)
+    WG.add_port(name = 1, midpoint = [0,width/2], width = width, orientation = 180)
+    WG.add_port(name = 2, midpoint = [length,width/2], width = width, orientation = 0)
     return WG
 
 def global_markers(layer_marker=10, layer_mask=20):
-    D = Device()
+    D = Device('Global Markers')
     R = pg.rectangle(size=(20,20), layer=layer_marker)
     a = D.add_array(R, columns = 3, rows = 3,  spacing = (100, 100))
     a.move([-110, -110]) #Center of the array
@@ -55,8 +55,8 @@ def global_markers(layer_marker=10, layer_mask=20):
     D << pg.offset(cover, distance=100, layer=layer_mask)
     return D
 
-def chip(size = (13000, 18000), keepout=2000, name='chip01', text_size=500,
-         text_location = 'SW', layer_text=10, layer=99):
+def chip(size = (13000, 18000), keepout=2000, name='chip01', text_size=250,
+         layer_text=10, layer=99):
     k = keepout
     DX = size[0]
     DY = size[1]
@@ -68,23 +68,111 @@ def chip(size = (13000, 18000), keepout=2000, name='chip01', text_size=500,
     
     #Add name
     L = pg.text(text=name, size=text_size, layer=layer_text, justify='center')
-    CHIP.add_ref(L).move((DX/2,k))
+    CHIP.add_ref(L).move((DX/2,k-text_size-200))
     
     #Add markers
     M = global_markers()
-    CHIP.add_ref(M).move([k,k])
-    CHIP.add_ref(M).move([DX-k,k])
-    CHIP.add_ref(M).move([k,DY-k])
-    CHIP.add_ref(M).move([DX-k,DY-k])
+    offset = 110
+    CHIP.add_ref(M).move([k-offset,k-offset])
+    CHIP.add_ref(M).move([DX-k+offset,k-offset])
+    CHIP.add_ref(M).move([k-offset,DY-k+offset])
+    CHIP.add_ref(M).move([DX-k+offset,DY-k+offset])
     
     return CHIP
   
+def poling_region(length=4000, period=5, dutycycle=0.4, gap=25,
+                  Lfinger=50, layer=10):
+    
+    #Fixed parameters
+    height = 50
+    
+    #Calculations
+    Wfinger = period*dutycycle
+    length = length - round(length%period,1)
+    Nfinger = int(length/period)
+    length =  length - (1-dutycycle)*period
 
+    P = Device('Poling Electrodes')
+    
+    #Positive side
+    R = pg.rectangle([length, height], layer=layer)
+    F = pg.rectangle([Wfinger, Lfinger], layer=layer)
+    P << R
+    a = P.add_array(F, columns=Nfinger, rows=1, spacing=(period,0))
+    a.move([0, height])
+    
+    #Negative side
+    R2 = pg.rectangle([length, height], layer=layer)
+    r2 = P.add_ref(R2)
+    r2.move([0, height+Lfinger+gap])
+    
+    return P
 
-def poling_region():
-    pass
+def contact_pads(size = (150,150), label='', label_size = 50, layer=10):
+    # P = Device('Pad')
+    R = pg.rectangle(size, layer)
+    if label != '':
+        L = pg.text(label, label_size, layer=layer)
+        L.move([10,10])
+        P = pg.boolean(A = R, B = L, operation = 'A-B', layer=layer)
+    else:
+        P = R
+    return P
+
+def resonator_half(radius = 100, width=1.0, length = 4000, layer=1):
+    D = Device()
+    
+    R1 = pg.arc(radius, width, theta=180, start_angle=90, layer=layer)
+    R2 = pg.arc(radius, width, theta=180, start_angle=-90, layer=layer)
+    L = waveguide(width, length, layer)
+    
+    r1 = D.add_ref(R1)
+    r2 = D.add_ref(R2)
+    l = D.add_ref(L)
+    
+    r1.connect(port=1, destination=l.ports[1])
+    r2.connect(port=2, destination=l.ports[2])
+    
+    return  D
 
 #OPO function
-def OPO(name='OPO', length=4000, radius=200, width=1.0, Lc=200, Cgap=1.0, 
-        Loc=50, Cogap=1.5, orientation=1):
-    pass
+def OPO(name='OPO', length=4000, radius=100, width=1.0, Lc=200, Cgap=1.0, 
+        Loc=50, Cogap=1.5, pp=5.0, dutycycle=0.4, pgap=25):
+    
+    OPO =  Device('OPO')
+    
+    #Poling region - centered
+    p = OPO.add_ref(poling_region(length, period=pp, dutycycle=dutycycle, gap=pgap))
+    p.move([0,-100-pgap/2])
+    
+    #Waveguides and couplers
+    wg_main = OPO.add_ref(waveguide(width, length))
+    cp1_a = OPO.add_ref(waveguide(width, Lc))
+    cp2_a = OPO.add_ref(waveguide(width, Lc))
+    cp1_b = OPO.add_ref(waveguide(width, Lc))
+    cp2_b = OPO.add_ref(waveguide(width, Lc))
+    
+    cp1_a.connect(port=2, destination=wg_main.ports[1])
+    cp2_a.connect(port=1, destination=wg_main.ports[2])
+    cp1_b.connect(port=2, destination=wg_main.ports[1])
+    cp2_b.connect(port=1, destination=wg_main.ports[2])
+        
+    cp1_b.move([0, Cgap + width])
+    cp2_b.move([0, Cgap + width])
+    
+    #Resonator
+    r1 = OPO.add_ref(pg.arc(radius, width, theta=180, start_angle=90, layer=1))
+    r2 = OPO.add_ref(pg.arc(radius, width, theta=180, start_angle=-90, layer=1))  
+    r1.connect(port=2, destination=cp1_b.ports[1])
+    r2.connect(port=1, destination=cp2_b.ports[2])
+    wg_res = OPO.add_ref(waveguide(width, length+2*Lc))
+    wg_res.connect(port=1, destination=r1.ports[1])
+    
+    #output coupler
+    cpout = OPO.add_ref(waveguide(width, Loc))
+    cpout.connect(port=2, destination=wg_res.ports[2])
+    cpout.move([-Lc-Loc, Cogap + width])
+    r3 = OPO.add_ref(pg.arc(radius, width, theta=180, start_angle=90, layer=1))
+    r3.connect(port=1, destination=cpout.ports[1])
+    
+    return OPO
