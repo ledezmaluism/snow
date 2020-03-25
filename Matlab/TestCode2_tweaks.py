@@ -42,8 +42,8 @@ def single_pass(a, b, L, h, Da, Db, kappas):
 
 # Input Parameters
 
-Nround_trips = 1
-# Nround_trips = 200; # number of round-trips/ also a measure of slow time evolution
+# Nround_trips = 1
+Nround_trips = 200; # number of round-trips/ also a measure of slow time evolution
 T=0.65; # Transmitivity of the output coupler
 L=1; # Length of crystal in mm
 
@@ -104,8 +104,8 @@ kappas = sqrt(2*377)*deff*Omegas/Ws/ns/sqrt(pi*npp)/c*10**-3;
 # kappas = max(kappas,0);
 kappas = np.clip(kappas, 0, None)
 
-noise = 10**-10*np.ones([1,tau.size]);
-#noise=10**-10*randn(1,length(tau)); # random noise of small amplitude is take as the initial condition for the signal
+# noise = 10**-10*np.ones([1,tau.size]);
+noise=1e-10*np.random.normal(size=tau.size); # random noise of small amplitude is take as the initial condition for the signal
 ##
 
 for kp in range(pin.size):
@@ -130,7 +130,7 @@ for kp in range(pin.size):
             
             [a, b] = single_pass(a, b, L, dstep, Da, Db, kappas);
             
-            # a=ifft(fft(a)*sqrt(1-T)*exp(1j*(phi))); #feedback path
+            a=ifft(fft(a)*sqrt(1-T)*exp(1j*(phi))); #feedback path
             data_a[n,:]=(abs(a)/np.amax(abs(a)))**2; #saving the normalized intensity profile of signal every roundtrip
             data_b[n,:]=(abs(b)/np.amax(abs(b)))**2;           
             
