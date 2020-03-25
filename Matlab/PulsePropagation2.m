@@ -13,7 +13,8 @@ tic
 % * distance = mm
 %%
 %
-c = physconst('LightSpeed')*1e-12; %mm/fs
+%c = physconst('LightSpeed')*1e-12; %mm/fs
+c = 3e8*1e-12;
 %%
 % Input Parameters
 
@@ -73,7 +74,8 @@ Omegas = 2*pi*3*10^8/(2090*10^-9)+omega*10^15; %Absolute frequency
 kappas = sqrt(2*377)*deff*Omegas/Ws/ns/sqrt(pi*np)/(3*10^8)*10^-3;
 kappas = max(kappas,0);
 
-noise=10^-10*randn(1,length(tau)); % random noise of small amplitude is take as the initial condition for the signal
+noise = 10^-10*ones(1,length(tau));
+%noise=10^-10*randn(1,length(tau)); % random noise of small amplitude is take as the initial condition for the signal
 %%
 
 for kp=1:1:length(pin)
