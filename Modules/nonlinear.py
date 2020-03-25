@@ -5,6 +5,7 @@ Spyder Editor
 This is a temporary script file.
 """
 import numpy as np
+from numpy import exp, log, log10, sqrt, abs
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
 from scipy.constants import pi, c, h
@@ -30,7 +31,7 @@ class pulse:
         self.e = e
         self.E = fft(e, self.NFFT)
         
-        self.Emag = np.abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
+        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
         self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
         
         self.f = fftfreq(self.NFFT, self.dt)*1e3 #THz
@@ -106,21 +107,21 @@ class pulse:
             ax1.set_ylim(ylim)
     
     def plot_magsq_rel_vs_time(self, label='Pulse Intensity (W)', xlim=None):
-        e2 = np.abs(self.e)**2
+        e2 = abs(self.e)**2
         e2_rel = e2/np.amax(e2)
         self.__plot_vs_time(e2_rel, ylabel=label, xlim=xlim)
         
     def plot_magsq_vs_time(self, label='Pulse Intensity (W)', xlim=None):
-        e2 = np.abs(self.e)**2
+        e2 = abs(self.e)**2
         self.__plot_vs_time(e2, ylabel=label, xlim=xlim)
             
     def plot_mag_rel_vs_time(self, label='Pulse Amplitude (W^1/2)', xlim=None):
-        e_mag = np.abs(self.e)
+        e_mag = abs(self.e)
         e_mag_rel = e_mag/np.amax(e_mag)
         self.__plot_vs_time(e_mag_rel, ylabel=label, xlim=xlim)
             
     def plot_mag_vs_time(self, label='Pulse Amplitude (W^1/2)', xlim=None):
-        e_mag = np.abs(self.e)
+        e_mag = abs(self.e)
         self.__plot_vs_time(e_mag, ylabel=label, xlim=xlim)
             
     def plot_phase_vs_time(self, label='Pulse Phase (rads)', xlim=None):
@@ -135,7 +136,7 @@ class pulse:
         
     def plot_ESD_dB(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
         esd_rel = self.esd/np.amax(self.esd)
-        esd_dB = 10*np.log10(esd_rel)
+        esd_dB = 10*log10(esd_rel)
         self.__plot_vs_freq(esd_dB, ylabel=label, xlim=xlim)
         
     def plot_spectrum_absfreq(self, label='Spectrum Amplitude (W^1/2 / Hz)', xlim=None):
@@ -146,7 +147,7 @@ class pulse:
         
     def plot_ESD_dB_absfreq(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
         esd_rel = self.esd/np.amax(self.esd)
-        esd_dB = 10*np.log10(esd_rel)
+        esd_dB = 10*log10(esd_rel)
         self.__plot_vs_freq(esd_dB, ylabel=label, xlim=xlim, absfreq=True)
         
     def plot_spectrum_vs_wavelength(self, label='Spectrum Amplitude (W^1/2 / Hz)', xlim=None):
@@ -157,11 +158,11 @@ class pulse:
         
     def plot_ESD_dB_wavelength(self, label='Energy Spectral Density (dB / Hz^2)', xlim=None):
         esd_rel = self.esd/np.amax(self.esd)
-        esd_dB = 10*np.log10(esd_rel)
+        esd_dB = 10*log10(esd_rel)
         self.__plot_vs_wavelength(esd_dB, ylabel=label, xlim=xlim)
         
     def energy_td(self):
-        pwr = np.abs(self.e)**2
+        pwr = abs(self.e)**2
         energy = np.sum(pwr)*self.dt*1e-15 #Joules
         return energy
     
@@ -193,31 +194,54 @@ class nonlinear_element():
     PP: poling period (um)
     h: split-step size (um)
     '''
-    pass
-
-def nonlinear_operator(a,b,kappa):
-    f = ifft(kappa*fft(b*np.conj(a)))
-    g = -ifft(kappa*fft(a*a))
-    return np.array([f,g])
-
-def single_pass(a,b,Da,Db,kappa,L,h):
-    
-    for kz in range(int(L/h)):
-        #Linear step
-        a = ifft(Da*fft(a))
-        b = ifft(Da*fft(b))
+    def __init__(self, L=1, PP=0, h=None):
+        self.L = L
+        self.PP = PP
+        if h is None:
+            self.h = L/50
+        else:
+            self.h = h
+            
+    def add_dispersion_functions(self, Da, Db):
+        self.Da = Da
+        self.Db = Db
         
-        #Nonlinear step
-        #Runge-Kutta
-        [k1, l1] = h*nonlinear_operator(a,b,kappa)
-        [k2, l2] = h*nonlinear_operator(a+k1/2,b+l1/2,kappa)
-        [k3, l3] = h*nonlinear_operator(a+k2/2,b+l2/2,kappa)
-        [k4, l4] = h*nonlinear_operator(a+k3,b+l3,kappa)
-                                               
-        a = a + (1/6)*(k1+2*k2+2*k3+k4)
-        b = b + (1/6)*(l1+2*l2+2*l3+l4)
+    def add_dispersion_coeffs(self, Ca, Cb):
+        pass
+    
+    def add_dispersion_neff(self, neff):
+        pass
+    
+    def add_nonlinear_coeff(self, nlc):
+        self.nlc = nlc
+    
+    def propagate(self, a, b):
+        Da = self.Da
+        Db = self.Db
+        nlc = self.nlc
+        
+        for kz in range(int(self.L/self.h)):
+            #Linear step
+            a = ifft(Da*fft(a))
+            b = ifft(Db*fft(b))
+            
+            #Nonlinear step
+            #Runge-Kutta 4th order
+            [k1, l1] = h*self._nonlinear_operator(a,b,nlc)
+            [k2, l2] = h*self._nonlinear_operator(a+k1/2,b+l1/2,nlc)
+            [k3, l3] = h*self._nonlinear_operator(a+k2/2,b+l2/2,nlc)
+            [k4, l4] = h*self._nonlinear_operator(a+k3,b+l3,nlc)
+                                                   
+            a = a + (1/6)*(k1+2*k2+2*k3+k4)
+            b = b + (1/6)*(l1+2*l2+2*l3+l4)
+            
+        return a,b
+        
+    def _nonlinear_operator(a,b,kappa):
+        f = ifft(kappa*fft(b*np.conj(a)))
+        g = -ifft(kappa*fft(a*a))
+        return np.array([f,g])
 
-    return a,b
 
 def opo(b, N, L, h, Da, Db, fb, kappa):
     '''
@@ -248,7 +272,7 @@ def opo(b, N, L, h, Da, Db, fb, kappa):
         #Apply feedback
         a = ifft(fb*fft(a))
         
-        evol[kn,:] = (np.abs(a)/np.max(np.abs(a)))**2; #Round-trip evolution
+        evol[kn,:] = (abs(a)/np.max(abs(a)))**2; #Round-trip evolution
         
         if kn%50==0 and kn!=0:
             print('Completed roundtrip ' + str(kn))
@@ -276,7 +300,7 @@ if __name__ == '__main__':
     Tmax = 1400 #(fs) (window will go from -Tmax to Tmax)
     t = np.linspace(-Tmax, Tmax, NFFT) 
     tau = 100/1.76
-    b = np.sqrt(0.88*4e6/100)/np.cosh(t/tau)
+    b = sqrt(0.88*4e6/100)/np.cosh(t/tau)
     
     a = pulse(t, b, 2.0)
     a.plot_ESD_dB_wavelength()
