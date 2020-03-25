@@ -190,7 +190,8 @@ class nonlinear_element():
     D: Dispersion vs frequency
     kappa: nonlinear coefficient
     L: length (um)
-    h: split-step size
+    PP: poling period (um)
+    h: split-step size (um)
     '''
     pass
 
@@ -254,6 +255,21 @@ def opo(b, N, L, h, Da, Db, fb, kappa):
         
     print('Completed roundtrip ' + str(kn+1)) 
     return a, b_output, evol
+
+def test1():
+    '''
+    From Marc's paper
+    '''
+    Nrt = 200
+    T = 0.65
+    L = 1
+    frep = 250e6
+    tw = 70
+    dstep = L/50
+    pin = 0.5
+    dT = 4
+    NFFT = 2e12
+    Tmax = 1000
 
 if __name__ == '__main__':
     NFFT = 2**8
