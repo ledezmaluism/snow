@@ -12,6 +12,7 @@ from numpy.fft import fft, ifft, fftshift, fftfreq
 from numpy import sqrt, exp, log10
 import matplotlib.pyplot as plt
 from scipy.constants import pi,c
+import time
 
 def sech(x):
     return 1/np.cosh(x)
@@ -37,7 +38,7 @@ def single_pass(a, b, L, h, Da, Db, kappas):
         
     return a,b
 
-c = c*1e-12; #mm/fs
+# c = c*1e-12; #mm/fs
 
 # Input Parameters
 
@@ -98,8 +99,8 @@ Ws= 14*10**-6; # beam waist of signal (m)
 deff= 2/pi*16*10**-12; #2/pi*20*10**-12
 ns=2.2333; # refractive index of signal
 npp=2.1935; # refractive index of pump
-Omegas = 2*pi*3*10**8/(2090*10**-9)+omega*10**15; #Absolute frequency
-kappas = sqrt(2*377)*deff*Omegas/Ws/ns/sqrt(pi*npp)/(3*10**8)*10**-3;
+Omegas = 2*pi*c/(2090*10**-9)+omega*10**15; #Absolute frequency
+kappas = sqrt(2*377)*deff*Omegas/Ws/ns/sqrt(pi*npp)/c*10**-3;
 # kappas = max(kappas,0);
 kappas = np.clip(kappas, 0, None)
 
@@ -111,7 +112,7 @@ for kp in range(pin.size):
     for kd in range(dT.size):
         
         deltaT=dT[kd]; #detuning
-        l=(3*10**8*deltaT*10**-15)/(1045*10**-9); #detuning converted from fs to l parameter
+        l=(c*deltaT*10**-15)/(1045*10**-9); #detuning converted from fs to l parameter
         phi=pi*l+(phic)+deltaT*(omega); # the feedback transfer function in fourier domain
         
         pavg=pin[kp];# average pump power
@@ -123,18 +124,21 @@ for kp in range(pin.size):
         
         data_a = np.zeros([Nround_trips, NFFT]);
         data_b = np.zeros([Nround_trips, NFFT]);
+        tic = time.time()
         for n in  range(Nround_trips): # outer loop for roundtrip evolution dynamics
             b = seed;
             
             [a, b] = single_pass(a, b, L, dstep, Da, Db, kappas);
             
-            a=ifft(fft(a)*sqrt(1-T)*exp(1j*(phi))); #feedback path
+            # a=ifft(fft(a)*sqrt(1-T)*exp(1j*(phi))); #feedback path
             data_a[n,:]=(abs(a)/np.amax(abs(a)))**2; #saving the normalized intensity profile of signal every roundtrip
             data_b[n,:]=(abs(b)/np.amax(abs(b)))**2;           
             
             if (n+1)%50==0:
                 print('Input Power = %0.2f W, Detuning = %0.2f fs, Completed roundtrip %i\n' % (pavg, deltaT, n+1))
-           
+         
+        elapsed = time.time() - tic
+        print('Time elapsed = ' + str(round(elapsed,5)) + ' seconds')
         A = fftshift(fft(a)); # spectral profile of the signal at steady state
         B = fftshift(fft(b)); # spectral profile of the pump after exiting the cavity
         temp3 = fftshift(fft(seed)); # spectral profile of the pump before entering the cavity
@@ -153,8 +157,8 @@ ax1.set_ylabel('Power(W)')
 ax1.set_xlim([-7*tw,7*tw]);
 
 fig2, ax2 = plt.subplots()
-fconv=(3*10**8/2090/10**-9+fftshift(omega/2/pi*10**15));
-lambdaconv=3*10**8./fconv*10**9;
+fconv=(c/2090/10**-9+fftshift(omega/2/pi*10**15));
+lambdaconv=c/fconv*10**9;
 ax2.plot((lambdaconv),(20*log10(abs(A/max(A)))),'b')
 ax2.set_xlim([1500, 3000])
 ax2.set_ylim([-30,0])
