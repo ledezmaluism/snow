@@ -8,7 +8,10 @@ import numpy as np
 from numpy import exp, log, log10, sqrt, abs
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
-from scipy.constants import pi, c, h
+import copy
+from util import check
+from scipy.constants import pi, c
+
 
 class pulse:
     
@@ -24,29 +27,53 @@ class pulse:
     
     def __init__(self, t, e, wavelength):
         
+        if not check(wavelength, 0.05, 10):
+            print('Warning: Wavelength of %0.2f um '%(wavelength) + 
+                  'for pulse looks outside usual range.')
+        
+        #Static atributes, they usually don't change
+        self.t = t
         self.dt = t[1]-t[0] #Sample spacing
         self.NFFT = t.size
-        
-        self.t = t
-        self.e = e
-        self.E = fft(e, self.NFFT)
-        
-        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
-        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
-        
         self.f = fftfreq(self.NFFT, self.dt)*1e3 #THz
         self.omega = 2*pi*self.f
         self.df = self.f[1]-self.f[0]
-        
-        self.wl0 = wavelength #microns
-        self.f0 = (c*1e6/1e12)/wavelength #THz
+        self.wl0 = wavelength #central wavelength in microns
+        self.f0 = (c*1e6/1e12)/wavelength #central frequency in THz
         self.fabs = self.f + self.f0
         self.wl = (c*1e6/1e12)/self.fabs
         
+        #Dynamic atributes, they change as pulse propagates
+        self.e = e
+        self.E = fft(e, self.NFFT)
+        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
+        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
+        
+
         if np.amin(self.fabs)<=0:
             print('Warning: negative absolute frequencies found. ' + 
                   'Considering reducing the number of points, ' +  
                   'or increasing the total time')
+            
+    def update_td(self, e):
+        if np.size(self.t) == np.size(e):
+            self.e = e
+            self.E = fft(e, self.NFFT)
+            self.update_param()
+        else:
+            raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.')
+            
+    def update_fd(self, E):
+        if np.size(self.t) == np.size(E):
+            self.E = E
+            self.e = ifft(E, self.NFFT)
+            self.update_param()
+        else:
+            raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.') 
+            
+    def update_param(self):
+        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
+        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
         
     def __plot_vs_time(self, x, ylabel='', xlabel = 'Time (fs)', 
                        xlim=None, ylim=None):
@@ -171,9 +198,7 @@ class pulse:
         return energy
     
     def photon_number(self):
-        energy_bins = self.esd*self.df*1e12 #Joules
-        photons_per_bin = energy_bins/(h*self.fabs)
-        return sum(photons_per_bin)
+        pass
     
     def time_center(self):
         pass
@@ -184,7 +209,17 @@ class pulse:
     def width_rms(self):
         pass
     
-            
+           
+class linear_element():
+    
+    def __init__(self, D):
+        self.D = D
+        
+    def propagate(self, signal):
+        X = self.D*signal.E
+        signal.update_fd(X)
+        return signal
+    
 class nonlinear_element():
     '''
     Atributes
@@ -194,20 +229,36 @@ class nonlinear_element():
     PP: poling period (um)
     h: split-step size (um)
     '''
-    def __init__(self, L=1, PP=0, h=None):
+    def __init__(self, L=1, PP=0, Da=None, Db=None, nlc=None, h=None):
         self.L = L
         self.PP = PP
+        self.nlc = nlc
         if h is None:
             self.h = L/50
         else:
             self.h = h
-            
-    def add_dispersion_functions(self, Da, Db):
-        self.Da = Da
-        self.Db = Db
+        self.Da = exp(-self.h*Da)
+        self.Db = exp(-self.h*Db)
         
-    def add_dispersion_coeffs(self, Ca, Cb):
-        pass
+    def add_dispersion_functions(self, Da, Db):
+        self.Da = np.exp(-self.h*Da)
+        self.Db = np.exp(-self.h*Db)
+        
+    def add_dispersion_coeffs(self, Ca, Cb, Omega):
+        alpha_a = Ca[0]
+        b2a = Ca[1]
+        b3a = Ca[2]
+        b4a = Ca[3]
+        alpha_b = Cb[0]
+        u = Cb[1]
+        b2b = Cb[2]
+        b3b = Cb[3]
+        b4b = Cb[4]
+        
+        Da = alpha_a/2 - 1j*b2a*Omega**2/2 - 1j*b3a*Omega**3/6 - 1j*b4a*Omega**4/24
+        Db = alpha_b/2 - 1j*u*Omega - 1j*b2b*Omega**2/2 - 1j*b3b*Omega**3/6 - 1j*b4b*Omega**4/24
+        self.Da = np.exp(-self.h*Da)
+        self.Db = np.exp(-self.h*Db)
     
     def add_dispersion_neff(self, neff):
         pass
@@ -215,93 +266,47 @@ class nonlinear_element():
     def add_nonlinear_coeff(self, nlc):
         self.nlc = nlc
     
-    def propagate(self, a, b):
+    def propagate(self, a_input, b_input):
         Da = self.Da
         Db = self.Db
         nlc = self.nlc
+        h = self.h
+        
+        a_output = copy.deepcopy(a_input)
+        b_output = copy.deepcopy(b_input)
+        #Get just the time domain part of the pulses
+        x = a_output.e
+        y = b_output.e
         
         for kz in range(int(self.L/self.h)):
             #Linear step
-            a = ifft(Da*fft(a))
-            b = ifft(Db*fft(b))
+            x = ifft(Da*fft(x))
+            y = ifft(Db*fft(y))
             
             #Nonlinear step
             #Runge-Kutta 4th order
-            [k1, l1] = h*self._nonlinear_operator(a,b,nlc)
-            [k2, l2] = h*self._nonlinear_operator(a+k1/2,b+l1/2,nlc)
-            [k3, l3] = h*self._nonlinear_operator(a+k2/2,b+l2/2,nlc)
-            [k4, l4] = h*self._nonlinear_operator(a+k3,b+l3,nlc)
+            [k1, l1] = h*self._nonlinear_operator(x,y,nlc)
+            [k2, l2] = h*self._nonlinear_operator(x+k1/2,y+l1/2,nlc)
+            [k3, l3] = h*self._nonlinear_operator(x+k2/2,y+l2/2,nlc)
+            [k4, l4] = h*self._nonlinear_operator(x+k3,y+l3,nlc)
                                                    
-            a = a + (1/6)*(k1+2*k2+2*k3+k4)
-            b = b + (1/6)*(l1+2*l2+2*l3+l4)
-            
-        return a,b
+            x = x + (1/6)*(k1+2*k2+2*k3+k4)
+            y = y + (1/6)*(l1+2*l2+2*l3+l4)
         
-    def _nonlinear_operator(a,b,kappa):
-        f = ifft(kappa*fft(b*np.conj(a)))
-        g = -ifft(kappa*fft(a*a))
+        #Update the pulses
+        a_output.update_td(x)
+        b_output.update_td(y)
+        return a_output,b_output
+        
+    def _nonlinear_operator(self, a, b, nlc):
+        f = ifft(nlc*fft(b*np.conj(a)))
+        g = -ifft(nlc*fft(a*a))
         return np.array([f,g])
 
 
-def opo(b, N, L, h, Da, Db, fb, kappa):
-    '''
-    Inputs:
-    b: input pump pulse
-    N: number of rountrips
-    L: length of the crystal
-    h: spatial step on the crystal
-    Da: Dispersion operator of crystal at signal
-    Db: Dispersion operator of crystal at pump
-    fb: Feedback operator
-    kappa: nonlinear coupling
-    
-    Outputs:
-    a: signal pulse after N roundtrips
-    b: pump pulse after last roundtrip
-    '''
-    
-    #Initialize signal as random
-    NFFT = b.size
-    noise = 1e-10*np.random.normal(size=NFFT)
-    a = noise
-    
-    evol = np.zeros([N, NFFT])
-    for kn in range(N):
-        a,b_output = single_pass(a,b,Da,Db,kappa,L,h)
-            
-        #Apply feedback
-        a = ifft(fb*fft(a))
-        
-        evol[kn,:] = (abs(a)/np.max(abs(a)))**2; #Round-trip evolution
-        
-        if kn%50==0 and kn!=0:
-            print('Completed roundtrip ' + str(kn))
-        
-    print('Completed roundtrip ' + str(kn+1)) 
-    return a, b_output, evol
-
 def test1():
-    '''
-    From Marc's paper
-    '''
-    Nrt = 200
-    T = 0.65
-    L = 1
-    frep = 250e6
-    tw = 70
-    dstep = L/50
-    pin = 0.5
-    dT = 4
-    NFFT = 2e12
-    Tmax = 1000
+    pass
 
 if __name__ == '__main__':
-    NFFT = 2**8
-    Tmax = 1400 #(fs) (window will go from -Tmax to Tmax)
-    t = np.linspace(-Tmax, Tmax, NFFT) 
-    tau = 100/1.76
-    b = sqrt(0.88*4e6/100)/np.cosh(t/tau)
-    
-    a = pulse(t, b, 2.0)
-    a.plot_ESD_dB_wavelength()
+    test1()
     
