@@ -42,8 +42,8 @@ def single_pass(a, b, L, h, Da, Db, kappas):
 
 # Input Parameters
 
-# Nround_trips = 1
-Nround_trips = 200; # number of round-trips/ also a measure of slow time evolution
+Nround_trips = 1
+# Nround_trips = 200; # number of round-trips/ also a measure of slow time evolution
 T=0.65; # Transmitivity of the output coupler
 L=1; # Length of crystal in mm
 
