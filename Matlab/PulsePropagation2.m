@@ -18,7 +18,7 @@ c = 3e8*1e-12;
 %%
 % Input Parameters
 
-Nround_trips = 200; % number of round-trips/ also a measure of slow time evolution
+Nround_trips = 300; % number of round-trips/ also a measure of slow time evolution
 T=0.65; % Transmitivity of the output coupler
 L=1; % Length of crystal in mm
 
@@ -31,13 +31,13 @@ dstep=L/50; % discretization in crystal i.e the crystal is divided into 50 segme
 pin=0.5; % average pump input power (Watt)
 %pin=[0.6,0.7,0.8,0.9,1];     %%%%%% pin can be a matrix, in that case you can study the effect of input power variation
 
-dT=4; % detuning in fs
+dT=0; % detuning in fs
 %dT=[0.75, 0.85, 0.87, 0.89, 0.91, 0.93]; %%%%%% dT can be a matrix, in
 %that case you can study the effect of detuning and find the peak structure
 
 %---tau and omega arrays
-NFFT = 2^12; % number of fft points/ number of discretizations of the fast time axis
-Tmax = 1000; % Extent of the fast time axis in fs
+NFFT = 2^10; % number of fft points/ number of discretizations of the fast time axis
+Tmax = 2000; % Extent of the fast time axis in fs
 dtau = (2*Tmax)/NFFT;% step size in fast axis
 tau = (-NFFT/2:NFFT/2-1)*dtau; % discretization of fast axis
 omega =  pi/Tmax* [(0:NFFT/2-1) (-NFFT/2:-1)]; %corresponding frequency grid
@@ -74,8 +74,8 @@ Omegas = 2*pi*3*10^8/(2090*10^-9)+omega*10^15; %Absolute frequency
 kappas = sqrt(2*377)*deff*Omegas/Ws/ns/sqrt(pi*np)/(3*10^8)*10^-3;
 kappas = max(kappas,0);
 
-noise = 10^-10*ones(1,length(tau));
-%noise=10^-10*randn(1,length(tau)); % random noise of small amplitude is take as the initial condition for the signal
+% noise = 10^-10*ones(1,length(tau));
+noise=10^-10*randn(1,length(tau)); % random noise of small amplitude is take as the initial condition for the signal
 %%
 
 for kp=1:1:length(pin)
