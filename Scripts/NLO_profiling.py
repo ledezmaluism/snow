@@ -116,4 +116,4 @@ def opo(signal, pump, nl_element, feedback):
 
 signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol = opo(signal, pump, crystal, fb)
 
-# signal.plot_ESD_dB_wavelength(xlim=[1,3])
+signal.plot_ESD_dB_wavelength(xlim=[1,3], ylim=[-50,0])
