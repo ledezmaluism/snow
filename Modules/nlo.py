@@ -5,6 +5,7 @@ Spyder Editor
 This is a temporary script file.
 """
 import numpy as np
+from numba import vectorize, float64
 from numpy import exp, log, log10, sqrt, abs
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ class pulse:
     
     '''
     
-    def __init__(self, t, e, wavelength):
+    def __init__(self, t, x, wavelength, domain='Time'):
         
         if not check(wavelength, 0.05, 10):
             print('Warning: Wavelength of %0.2f um '%(wavelength) + 
@@ -44,11 +45,18 @@ class pulse:
         self.wl = (c*1e6/1e12)/self.fabs
         
         #Dynamic atributes, they change as pulse propagates
-        self.e = e
-        self.E = fft(e, self.NFFT)
+        if domain=='Time':
+            self.e = x
+            self.E = fft(x, self.NFFT)
+        elif domain=='Freq':
+            self.E = x
+            self.e = ifft(x, self.NFFT)
+        else:
+            print('Wrong domain option. Options are "Time" or "Freq"')
         self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
         self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
-        
+        esd_rel = self.esd/np.amax(self.esd)
+        self.esd_dB = 10*log10(esd_rel)
 
         if np.amin(self.fabs)<=0:
             print('Warning: negative absolute frequencies found. ' + 
@@ -74,6 +82,8 @@ class pulse:
     def update_param(self):
         self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
         self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
+        esd_rel = self.esd/np.amax(self.esd)
+        self.esd_dB = 10*log10(esd_rel)
         
     def __plot_vs_time(self, x, ylabel='', xlabel = 'Time (fs)', ax1=None,
                        xlim=None, ylim=None):
@@ -321,27 +331,70 @@ class nonlinear_element():
         g = -ifft(nlc*fft(a*a))
         return np.array([f,g])
 
-def OPO(signal, pump, nl_element, feedback, N=200):
+
+# def OPO(signal, pump, nl_element, feedback, N=250):
+
+#     #Variables to save roundtrip evolution
+#     signal_evolution = np.zeros([N, pump.NFFT])
+#     signal_energy_evol = np.zeros(N)
+#     pump_energy_evol = np.zeros(N)
     
-    #Variables to save roundtrip evolution
-    signal_evolution = np.zeros([N, pump.NFFT])
-    signal_energy_evol = np.zeros(N)
-    pump_energy_evol = np.zeros(N)
+#     for kn in range(N):
+#         [signal, pump_out] =  nl_element.propagate(signal, pump)
+        
+#         #Apply feedback
+#         feedback.propagate(signal)
+        
+#         signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
+#         signal_energy_evol[kn] = signal.energy_td()
+#         pump_energy_evol[kn] = pump_out.energy_td()
+        
+#         if (kn+1)%50==0:
+#             print('Completed roundtrip ' + str(kn+1))
     
-    for kn in range(N):
-        [signal, pump_out] =  nl_element.propagate(signal, pump)
-        
-        #Apply feedback
-        feedback.propagate(signal)
-        
-        signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
-        signal_energy_evol[kn] = signal.energy_td()
-        pump_energy_evol[kn] = pump_out.energy_td()
-        
-        if (kn+1)%50==0:
-            print('Completed roundtrip ' + str(kn+1))
+#     return signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol
+
+# class OPO():
     
-    return signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol
+#     def __init__(self, nl_element, feedback):
+#         self.nl_element
+#         self.feedback
+        
+#     def simulate(self, signal, pump, N=250):
+    
+#         #Variables to save roundtrip evolution
+#         signal_evolution = np.zeros([N, pump.NFFT])
+#         signal_energy_evol = np.zeros(N)
+#         pump_energy_evol = np.zeros(N)
+        
+#         for kn in range(N):
+#             [signal, pump_out] =  self.nl_element.propagate(signal, pump)
+            
+#             #Apply feedback
+#             self.feedback.propagate(signal)
+            
+#             signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
+#             signal_energy_evol[kn] = signal.energy_td()
+#             pump_energy_evol[kn] = pump_out.energy_td()
+            
+#             if (kn+1)%50==0:
+#                 print('Completed roundtrip ' + str(kn+1))
+        
+#         return signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol
+    
+#     def cavity_feedback():
+#         #Feedback loop
+#         l = c*dT/wlb #Detuning parameter l
+#         phi = pi*l + dT*Omega + deltaphi
+#         fb = np.sqrt(Co_loss)*np.exp(1j*phi)
+    
+#         #Linear element representing this feedback path
+#         return nlo.linear_element(fb)
+        
+#     @vectorize([float64(float64)])
+#     def dT_sweep(dT):
+#         self.simulate()
+
 
 def test1():
     pass
