@@ -241,28 +241,28 @@ class pulse:
         pass
     
            
-class linear_element():
+# class linear_element():
     
-    def __init__(self, D):
-        '''
+#     def __init__(self, D):
+#         '''
         
 
-        Parameters
-        ----------
-        D : ARRAY
-            DISPERSION OPERATOR.
+#         Parameters
+#         ----------
+#         D : ARRAY
+#             DISPERSION OPERATOR.
 
-        Returns
-        -------
-        None.
+#         Returns
+#         -------
+#         None.
 
-        '''
-        self.D = D
+#         '''
+#         self.D = D
         
-    def propagate(self, signal):
-        X = self.D*signal.E
-        signal.update_fd(X)
-        return signal
+#     def propagate(self, signal):
+#         X = self.D*signal.E
+#         signal.update_fd(X)
+#         return signal
     
 class nonlinear_element():
     '''
@@ -341,13 +341,16 @@ class nonlinear_element():
     
 #     for kn in range(N):
 #         [signal, pump_out] =  nl_element.propagate(signal, pump)
-        
-#         #Apply feedback
-#         feedback.propagate(signal)
+
         
 #         signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
 #         signal_energy_evol[kn] = signal.energy_td()
 #         pump_energy_evol[kn] = pump_out.energy_td()
+        
+                
+#         #Apply feedback
+#         # feedback.propagate(signal)
+#         signal.update_fd(signal.E*feedback)
         
 #         if (kn+1)%50==0:
 #             print('Completed roundtrip ' + str(kn+1))
