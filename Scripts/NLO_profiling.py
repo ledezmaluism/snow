@@ -17,6 +17,7 @@ from matplotlib import cm
 
 from scipy.constants import pi, c
 
+tic = time.time();
 
 c = c*1e-12; #mm/fs, [Freq]=PHz
 NFFT = 2**10 #Fourier size
@@ -117,3 +118,6 @@ def opo(signal, pump, nl_element, feedback):
 signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol = opo(signal, pump, crystal, fb)
 
 signal.plot_ESD_dB_wavelength(xlim=[1,3], ylim=[-50,0])
+
+elapsed = time.time() - tic;
+print('Time elapsed = ' + str(round(elapsed,5)) + ' seconds')
