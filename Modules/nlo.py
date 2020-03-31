@@ -240,29 +240,6 @@ class pulse:
     def width_rms(self):
         pass
     
-           
-# class linear_element():
-    
-#     def __init__(self, D):
-#         '''
-        
-
-#         Parameters
-#         ----------
-#         D : ARRAY
-#             DISPERSION OPERATOR.
-
-#         Returns
-#         -------
-#         None.
-
-#         '''
-#         self.D = D
-        
-#     def propagate(self, signal):
-#         X = self.D*signal.E
-#         signal.update_fd(X)
-#         return signal
     
 class nonlinear_element():
     '''
@@ -330,73 +307,6 @@ class nonlinear_element():
         f = ifft(nlc*fft(b*np.conj(a)))
         g = -ifft(nlc*fft(a*a))
         return np.array([f,g])
-
-
-# def OPO(signal, pump, nl_element, feedback, N=250):
-
-#     #Variables to save roundtrip evolution
-#     signal_evolution = np.zeros([N, pump.NFFT])
-#     signal_energy_evol = np.zeros(N)
-#     pump_energy_evol = np.zeros(N)
-    
-#     for kn in range(N):
-#         [signal, pump_out] =  nl_element.propagate(signal, pump)
-
-        
-#         signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
-#         signal_energy_evol[kn] = signal.energy_td()
-#         pump_energy_evol[kn] = pump_out.energy_td()
-        
-                
-#         #Apply feedback
-#         # feedback.propagate(signal)
-#         signal.update_fd(signal.E*feedback)
-        
-#         if (kn+1)%50==0:
-#             print('Completed roundtrip ' + str(kn+1))
-    
-#     return signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol
-
-# class OPO():
-    
-#     def __init__(self, nl_element, feedback):
-#         self.nl_element
-#         self.feedback
-        
-#     def simulate(self, signal, pump, N=250):
-    
-#         #Variables to save roundtrip evolution
-#         signal_evolution = np.zeros([N, pump.NFFT])
-#         signal_energy_evol = np.zeros(N)
-#         pump_energy_evol = np.zeros(N)
-        
-#         for kn in range(N):
-#             [signal, pump_out] =  self.nl_element.propagate(signal, pump)
-            
-#             #Apply feedback
-#             self.feedback.propagate(signal)
-            
-#             signal_evolution[kn,:] = (np.abs(signal.e)/np.max(np.abs(signal.e)))**2
-#             signal_energy_evol[kn] = signal.energy_td()
-#             pump_energy_evol[kn] = pump_out.energy_td()
-            
-#             if (kn+1)%50==0:
-#                 print('Completed roundtrip ' + str(kn+1))
-        
-#         return signal, pump_out, signal_evolution, signal_energy_evol, pump_energy_evol
-    
-#     def cavity_feedback():
-#         #Feedback loop
-#         l = c*dT/wlb #Detuning parameter l
-#         phi = pi*l + dT*Omega + deltaphi
-#         fb = np.sqrt(Co_loss)*np.exp(1j*phi)
-    
-#         #Linear element representing this feedback path
-#         return nlo.linear_element(fb)
-        
-#     @vectorize([float64(float64)])
-#     def dT_sweep(dT):
-#         self.simulate()
 
 
 def test1():
