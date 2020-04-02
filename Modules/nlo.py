@@ -10,6 +10,7 @@ from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
 import copy
 from util import check
+import scipy.signal
 from scipy.constants import pi, c
 
 
@@ -37,6 +38,14 @@ def get_esd_dB(t, x):
     Xesd_dB = 10*log10(Xesd_rel)
     return f, Xesd_dB
 
+def FWHM(t, x, prominence=10):
+    dt = t[1]-t[0] #Sample spacing
+    x2 = np.abs(x)**2 #Intensity
+    peaks = scipy.signal.find_peaks(x2, prominence=prominence)
+    width = scipy.signal.peak_widths(x2, peaks[0])
+    fwhm = width[0]*dt
+    return fwhm
+
 def plot_vs_time(t, x, ylabel='', xlabel = 'Time (fs)', ax=None,
                    xlim=None, ylim=None):
     '''
@@ -46,7 +55,7 @@ def plot_vs_time(t, x, ylabel='', xlabel = 'Time (fs)', ax=None,
         fig = plt.figure()
         ax = fig.add_subplot(111)
     ax.plot(t, x)
-    ax.grid()
+    ax.grid(True)
     ax.set_xlabel(xlabel);
     ax.set_ylabel(ylabel);
     if xlim != None:
@@ -67,7 +76,7 @@ def __plot_vs_wavelength(wl, x, ylabel='', xlabel = 'Wavelength (um)',
         fig = plt.figure()
         ax = fig.add_subplot(111)
     ax.plot(wl, x)
-    ax.grid()
+    ax.grid(True)
     ax.set_xlabel(xlabel);
     ax.set_ylabel(ylabel);
     if xlim != None:
@@ -92,7 +101,7 @@ def __plot_vs_freq(f, x, ylabel='', xlabel = 'Frequency (THz)',
         fig = plt.figure()
         ax = fig.add_subplot(111)
     ax.plot(f, x)
-    ax.grid()
+    ax.grid(True)
     ax.set_xlabel(xlabel);
     ax.set_ylabel(ylabel);
     if xlim != None:
