@@ -17,13 +17,13 @@ def get_freq_domain(t, x):
     X = fft(x)
     dt = t[1]-t[0] #Sample spacing
     NFFT = t.size
-    f = fftfreq(NFFT, dt)*1e3 #THz
+    f = fftfreq(NFFT, dt)
     return fftshift(f), fftshift(X)
 
 def get_spectrum(t, x):
     dt = t[1]-t[0] #Sample spacing
     f, X = get_freq_domain(t, x)
-    Xmag = abs(X)*dt*1e-15 # (W^1/2)/Hz
+    Xmag = abs(X)*dt
     return f, Xmag
 
 def get_esd(t, x):
@@ -189,40 +189,40 @@ def plot_ESD_dB_absfreq(t, x, f0, label='Energy Spectral Density (dB / Hz^2)',
     return ax
         
 def plot_spectrum_vs_wavelength(t, x, f0, label='Spectrum Amplitude (W^1/2 / Hz)', 
-                                ax=None, xlim=None, ylim=None):
+                                ax=None, xlim=None, ylim=None, shift=True):
     f, Xmag = get_spectrum(t, x)
     f = f  + f0
-    wl = c*1e6/(f*1e12)
+    wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xmag, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=False)
+                              xlim=xlim, ylim=ylim, shift=shift)
     return ax
         
 def plot_ESD_vs_wavelength(t, x, f0, label='Energy Spectral Density (W / Hz^2)', 
-                           ax=None, xlim=None, ylim=None):
+                           ax=None, xlim=None, ylim=None, shift=True):
     f, Xesd = get_esd(t, x)
     f = f  + f0
-    wl = c*1e6/(f*1e12)
+    wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=False)
+                              xlim=xlim, ylim=ylim, shift=shift)
         
 def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dB / Hz^2)', 
-                           ax=None, xlim=None, ylim=None):
+                           ax=None, xlim=None, ylim=None, shift=True):
     f, Xesd = get_esd_dB(t, x)
     f = f  + f0
-    wl = c*1e6/(f*1e12)
+    wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=False)
+                              xlim=xlim, ylim=ylim, shift=shift)
         
 def energy_td(t, x):
     dt = t[1] - t[0]
     pwr = abs(x)**2
-    energy = np.sum(pwr)*dt*1e-15 #Joules
+    energy = np.sum(pwr)*dt #Joules
     return energy
 
 def energy_fd(t, x):
     f, Xesd = get_esd(t, x)
     df = f[1]-f[0]
-    energy = np.sum(Xesd)*df*1e12 #Joules
+    energy = np.sum(Xesd)*df #Joules
     return energy
 
 class pulse:
