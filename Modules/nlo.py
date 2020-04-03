@@ -19,7 +19,7 @@ def get_freq_domain(t, x):
     dt = t[1]-t[0] #Sample spacing
     NFFT = t.size
     f = fftfreq(NFFT, dt)
-    return fftshift(f), fftshift(X)
+    return f, X
 
 def get_spectrum(t, x):
     dt = t[1]-t[0] #Sample spacing
@@ -38,7 +38,7 @@ def get_esd_dB(t, x):
     Xesd_dB = 10*log10(Xesd_rel)
     return f, Xesd_dB
 
-def FWHM(t, x, prominence=10):
+def FWHM(t, x, prominence=1):
     dt = t[1]-t[0] #Sample spacing
     x2 = np.abs(x)**2 #Intensity
     peaks = scipy.signal.find_peaks(x2, prominence=prominence)
@@ -65,13 +65,12 @@ def plot_vs_time(t, x, ylabel='', xlabel = 'Time (fs)', ax=None,
     return ax
         
 def __plot_vs_wavelength(wl, x, ylabel='', xlabel = 'Wavelength (um)', 
-                         ax=None, xlim=None, ylim=None, shift=True):
+                         ax=None, xlim=None, ylim=None):
     '''
     Private function to plot stuff x vs wavelength (microns)
     '''
-    if shift:
-        wl = fftshift(wl)
-        x = fftshift(x)
+    wl = fftshift(wl)
+    x = fftshift(x)
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -91,12 +90,8 @@ def __plot_vs_freq(f, x, ylabel='', xlabel = 'Frequency (THz)',
     '''
     Private function to plot stuff x vs frequency (THz)
     '''
-    
-    #Check if frequencies are not shifted yet
-    if f[0]==0:
-        f = fftshift(f)
-        x = fftshift(x)
-    
+    f = fftshift(f)
+    x = fftshift(x)
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -198,29 +193,29 @@ def plot_ESD_dB_absfreq(t, x, f0, label='Energy Spectral Density (dB / Hz^2)',
     return ax
         
 def plot_spectrum_vs_wavelength(t, x, f0, label='Spectrum Amplitude (W^1/2 / Hz)', 
-                                ax=None, xlim=None, ylim=None, shift=True):
+                                ax=None, xlim=None, ylim=None):
     f, Xmag = get_spectrum(t, x)
     f = f  + f0
     wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xmag, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=shift)
+                              xlim=xlim, ylim=ylim)
     return ax
         
 def plot_ESD_vs_wavelength(t, x, f0, label='Energy Spectral Density (W / Hz^2)', 
-                           ax=None, xlim=None, ylim=None, shift=True):
+                           ax=None, xlim=None, ylim=None):
     f, Xesd = get_esd(t, x)
     f = f  + f0
     wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=shift)
+                              xlim=xlim, ylim=ylim)
         
 def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dB / Hz^2)', 
-                           ax=None, xlim=None, ylim=None, shift=True):
+                           ax=None, xlim=None, ylim=None):
     f, Xesd = get_esd_dB(t, x)
     f = f  + f0
-    wl = c/f*1e6 #Microns
+    wl = c/f*1e6 #to show in Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
-                              xlim=xlim, ylim=ylim, shift=shift)
+                              xlim=xlim, ylim=ylim)
         
 def energy_td(t, x):
     dt = t[1] - t[0]
@@ -233,6 +228,11 @@ def energy_fd(t, x):
     df = f[1]-f[0]
     energy = np.sum(Xesd)*df #Joules
     return energy
+
+def pulse_center(t, x):
+    dt = t[1] - t[0]
+    I = abs(x)**2
+    return np.sum(t*I*dt)/np.sum(I*dt)
 
 class pulse:
     
