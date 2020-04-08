@@ -83,7 +83,7 @@ def __plot_vs_wavelength(wl, x, ylabel='', xlabel = 'Wavelength (um)',
     if ylim != None:
         ax.set_ylim(ylim)
         
-        return ax
+    return ax
             
 def __plot_vs_freq(f, x, ylabel='', xlabel = 'Frequency (THz)', 
                        ax=None, xlim=None, ylim=None):
@@ -168,7 +168,8 @@ def plot_ESD(t, x, label='Energy Spectral Density (W / Hz^2)', ax=None,
 def plot_ESD_dB(t, x, label='Energy Spectral Density (dB / Hz^2)', ax=None,
                 xlim=None, ylim=None):
     f, Xesd = get_esd_dB(t, x)
-    ax = __plot_vs_freq(f, Xesd, ylabel=label, ax=ax, xlim=xlim, ylim=ylim)
+    ax = __plot_vs_freq(f, Xesd, xlabel='Offset Frequency (THz)', 
+                        ylabel=label, ax=ax, xlim=xlim, ylim=ylim)
     return ax
         
 def plot_spectrum_absfreq(t, x, f0, label='Spectrum Amplitude (W^1/2 / Hz)', 
@@ -208,6 +209,7 @@ def plot_ESD_vs_wavelength(t, x, f0, label='Energy Spectral Density (W / Hz^2)',
     wl = c/f*1e6 #Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
                               xlim=xlim, ylim=ylim)
+    return ax
         
 def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dB / Hz^2)', 
                            ax=None, xlim=None, ylim=None):
@@ -216,6 +218,7 @@ def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dB / Hz^
     wl = c/f*1e6 #to show in Microns
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
                               xlim=xlim, ylim=ylim)
+    return ax
         
 def energy_td(t, x):
     dt = t[1] - t[0]
