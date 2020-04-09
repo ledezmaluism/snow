@@ -241,18 +241,11 @@ def propagate(A, D):
         z = z + h
         A = A + (h/6)*(k1+2*k2+2*k3+k4) 
         
-        # sol = integrate.solve_ivp(nonlinear_operator, [z, z+h], A)
-        # A = sol.y[:,-1]
-        # z = z+h
-        
-        # if z>5e-3:
-        #     print('test')
-        
         A_evol[:, kz+1] = A
             
         if abs(z%0.5e-3) < h:
             tdelta = time.time() - tic
-            print('Completed propagation along %0.1f mm (%0.1f s)' %((kz+1)*h*1e3, tdelta))
+            print('Completed propagation along %0.1f mm (%0.1f s)' %(z*1e3, tdelta))
             tic = time.time()
     
     return A, A_evol
