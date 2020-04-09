@@ -21,101 +21,25 @@ import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
 import time
-from scipy import fftpack as sp
+# from scipy import fftpack as sp
 from scipy import signal
-import copy
+from scipy import integrate
 from matplotlib import cm
 # import colorcet as cc
-from matplotlib.colors import Normalize
+# from matplotlib.colors import Normalize
 
 #This are my libraries
 import nlo 
 import materials
-import waveguides
-from util import sech
-
-
-# ## Units
-# We'll work in SI units. Mostly in base units.
-
-# In[2]:
 
 
 from scipy.constants import pi, c, epsilon_0
-
-
-# ## Time and Frequency domain windows
-
-# Now we need to determine an FFT size $N$, this will be the common size for the time and frequency axis in our simulations. We also need to select how large the time window $T_{\mathrm{max}}$ for our simulations will be. The time window needs to be large enough so that no part of the pulse reaches the edge of the domain at any point. We will pick a reference group velocity for as the moving reference frame, so how much the pulse travels depends on the respective group velocity mismatches of all the frequency components with respect to this reference velocity.
-# 
-# The FFT poses the following relations between the time domain and frequency domain windows,
-# $$ T_\mathrm{max} = {N \Delta t} = \frac{1}{\Delta f }, \\
-# BW = f_s = \frac{1}{\Delta t},$$
-# or combining them
-# $$T_\mathrm{max} BW = N.$$
-
-# In[3]:
-
-
-# Tmax = 2.5e-12
-
-# wl_ff = 1580e-9 #Fundamental frequency
-# f0_ff = c/wl_ff
-
-# print('Fundamental wavelength = %0.1f nm' %(wl_ff*1e9))
-# print('Fundamental frequency = %0.1f THz' %(f0_ff*1e-12))
-
-# print('\n')
-
-# NFFT = 2**14
-# t = np.linspace(-5e-12, 17e-12, NFFT)
-
-# Tmax = np.amax(t) - np.amin(t)
-# dt = t[1]-t[0]
-# f = fftfreq(NFFT, dt)
-# omega = 2*pi*f
-# df = f[1]-f[0]
-# BW = np.amax(f) - np.amin(f)
-
-# #Reference frequency
-# wl_ref = 700e-9
-# f_ref = c/wl_ref
-# omega_ref = 2*pi*f_ref
-
-# #Absolute frequencies and wavelengths
-# f_abs = f + f_ref
-# wl_abs = c/f_abs
-# omega_abs = 2*pi*f_abs
-# f_min = np.amin(f_abs)
-# f_max = np.amax(f_abs)
-# wl_max = c/f_min
-# wl_min = c/f_max
-
-# print('Time window size = %0.3f ps' %(Tmax*1e12))
-# print('Sampling Rate = %0.3f fs' %(dt*1e15))
-# print('Frequency Resolution = %0.3f GHz' %(df*1e-9))
-# print('Total frequency span = %0.1f THz' %(BW*1e-12))
-# print('Reference wavelength = %0.1f nm' %(wl_ref*1e9))
-# print('Reference frequency = %0.1f THz' %(f_ref*1e-12))
-# print('Minimum absolute frequency = %0.1f THz' %(f_min*1e-12))
-# print('Maximum absolute frequency = %0.1f THz' %(f_max*1e-12))
-# print('Minimum absolute wavelength = %0.1f nm' %(c/f_max*1e9))
-# print('Maximum absolute wavelength = %0.1f um' %(c/f_min*1e6))
-# print('\n')
-
-# #get the frequency indexes for fundamental and second harmonics
-# f0_ff_index = np.abs(f + f_ref - f0_ff).argmin()
-# print('Array index for fundamental = %i' %(f0_ff_index))
-
-
-# In[4]:
-
 
 wl_ff = 1580e-9 #Fundamental frequency
 f0_ff = c/wl_ff
 
 #In this example we now what's the full bandwidth we want
-f_max = c/500e-9
+f_max = c/400e-9
 f_min = c/3500e-9
 BW = f_max - f_min 
 
@@ -125,10 +49,10 @@ wl_ref = c/f_ref
 omega_ref = 2*pi*f_ref
 
 #Time and frequency arrays
-NFFT = 2**12
+NFFT = 2**13
 Tmax = NFFT/BW
 dt = 1/BW
-t_start = -1e-12
+t_start = -2e-12
 t_stop = t_start + NFFT*dt
 t = np.arange(t_start, t_stop, step=dt)
 f = fftfreq(NFFT, dt)
@@ -164,14 +88,6 @@ print('\n')
 #get the frequency indexes for fundamental and second harmonics
 f0_ff_index = np.abs(f + f_ref - f0_ff).argmin()
 print('Array index for fundamental = %i' %(f0_ff_index))
-
-
-# ## Material properties
-# 
-# The higher order dispersion operator is
-# $$D = \beta(\Omega) - \beta_0(\Omega=0) - \beta_1(\Omega=0) \Omega$$.
-
-# In[5]:
 
 
 nLN = materials.refractive_index('LN_MgO_e', wl_abs*1e6)
@@ -269,7 +185,7 @@ ax1.set_ylim([0,3*1e8])
 
 # In[19]:
 
-
+window = signal.tukey(NFFT)
 # def poling_sinusoidal(z, pp):
 #     return (2/pi)*np.cos(z*2*pi/pp)
 
@@ -284,13 +200,6 @@ def chi(z):
     # return chi2(z)*omega_ref/(4*nLN[0]*c)
     return chi2(z)*(omega+omega_ref)/(4*nLN*c) #Freq dependent
 
-# def nonlinear_operator(z, A):
-#     phi = omega_ref*t - (beta_ref - beta_1_ref*omega_ref)*z
-#     f1 = A*A*np.exp(1j*phi) + 2*A*np.conj(A)*np.exp(-1j*phi)
-#     f1_deriv = np.gradient(f1, dt)
-#     f = -1j*chi(z)*f1 - 1*(chi(z)/omega_ref)*f1_deriv
-#     return f
-
 def nonlinear_operator(z, A):
 
     Aup = signal.resample(A, Nup*NFFT) #upsampled signal
@@ -300,9 +209,6 @@ def nonlinear_operator(z, A):
     f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
     
     f1 = signal.resample(f1up, NFFT) #Downsample
-    
-    # f1_deriv = np.gradient(f1, dt)    
-    # f = -1j*chi(z)*f1 #- 1*(chi(z)/omega_ref)*f1_deriv
     
     f = -1j*ifft(chi(z)*fft(f1))
     
@@ -320,25 +226,34 @@ def propagate(A, D):
     Da = np.exp(-1j*D*h)
     z = 0
     
+    tic = time.time()
     for kz in range(Nsteps):
         #Linear step
         A = ifft(Da*fft(A))
 
+        
         #Nonlinear step
         #Runge-Kutta 4th order
         k1 = nonlinear_operator(z    , A       )
         k2 = nonlinear_operator(z+h/2, A+h*k1/2)
         k3 = nonlinear_operator(z+h/2, A+h*k2/2)
         k4 = nonlinear_operator(z+h  , A+h*k3  )
-
         z = z + h
         A = A + (h/6)*(k1+2*k2+2*k3+k4) 
         
-        A_evol[:, kz+1] = A
+        # sol = integrate.solve_ivp(nonlinear_operator, [z, z+h], A)
+        # A = sol.y[:,-1]
+        # z = z+h
         
-        # completion = (kz+1)/Nsteps*100
-        # if completion%10==0:
-        #     print('Completion = %0.1f %%' %(completion))
+        # if z>5e-3:
+        #     print('test')
+        
+        A_evol[:, kz+1] = A
+            
+        if abs(z%0.5e-3) < h:
+            tdelta = time.time() - tic
+            print('Completed propagation along %0.1f mm (%0.1f s)' %((kz+1)*h*1e3, tdelta))
+            tic = time.time()
     
     return A, A_evol
 
@@ -349,7 +264,7 @@ Nup = 4
 
 #Crystal parameters
 L = 7e-3
-h = 1e-3/100
+h = 1e-3/200
 Nsteps = int(L/h)+1
 d33 = 27e-12
 pp = 30e-6
@@ -437,7 +352,6 @@ Xwl,Ywl = np.meshgrid(wl_array, np.arange(Nsteps+1)*h*1e3)
 plt.figure()
 # plt.pcolormesh(Xwl, Ywl, (np.transpose(A_evol[wl_max_idx:, :])), cmap = cc.cm["fire"], vmin=-80, vmax=0)
 plt.pcolormesh(Xwl, Ywl, (np.transpose(A_evol[wl_max_idx:, :])), cmap = cm.jet, vmin=-80, vmax=0)
-plt.xlim(0.5,3.5)
 cb = plt.colorbar()
 cb.set_label('Relative PSD (dB)')
 plt.xlabel('Wavelength (um)')
