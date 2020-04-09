@@ -9,6 +9,7 @@ from numpy import exp, log10, abs
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
 import copy
+import time
 from util import check
 import scipy.signal
 from scipy.constants import pi, c
@@ -236,79 +237,154 @@ def pulse_center(t, x):
     dt = t[1] - t[0]
     I = abs(x)**2
     return np.sum(t*I*dt)/np.sum(I*dt)
+
+
+def NEE_v1(z, A):
+    Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal
+    tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
     
-class nonlinear_element():
-    '''
-    Atributes
-    D: Dispersion vs frequency
-    kappa: nonlinear coefficient
-    L: length (um)
-    PP: poling period (um)
-    h: split-step size (um)
-    '''
-    def __init__(self, L=1, PP=0, Da=None, Db=None, nlc=None, h=None):
-        self.L = L
-        self.PP = PP
-        self.nlc = nlc
-        if h is None:
-            self.h = L/50
-        else:
-            self.h = h
-        self.Da = exp(-self.h*Da)
-        self.Db = exp(-self.h*Db)
-        
-    def update_h(self, h_new):
-        h_old = self.h
-        self.h = h_new
-        self.Da = (self.Da)**(h_new/h_old)
-        self.Db = (self.Db)**(h_new/h_old)
-        
-    def add_dispersion_functions(self, Da, Db):
-        self.Da = np.exp(-self.h*Da)
-        self.Db = np.exp(-self.h*Db)
-        
-    def add_dispersion_neff(self, neff):
+    phi = omega_ref*tup - (beta_ref - beta_1_ref*omega_ref)*z
+    f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
+    
+    f1 = scipy.signal.resample(f1up, NFFT) #Downsample
+    
+    f1_deriv = np.gradient(f1, dt)    
+    f = -1j*chi(z)*f1  - 1*(chi(z)/omega_ref)*f1_deriv
+    return f
+
+def nonlinear_propagation(t, A, L, h, D, chi, method='NEE', Nup=4):
+    
+    #Calculate number of steps needed
+    Nsteps = int(L/h)+1
+    
+    #Let's inform the user after every 0.5mm (hard-coded)
+    zcheck_step = 0.5e-3
+    zcheck = zcheck_step
+    tic = time.time()
+    
+    #Initialize the array that will store the full pulse evolution
+    A_evol = 1j*np.zeros([t.size, Nsteps+1])
+    A_evol[:,0] = A #Initial value
+    
+    #If chi is a constant then make if a function
+    if not callable(chi):
+        def chi(z):
+            return z
+    
+    #Load the appropriate function for the method chosen
+    if method=='NEE':
+        fnl = NEE_v1
+    elif method=='NEE_v2':
         pass
     
-    def add_nonlinear_coeff(self, nlc):
-        self.nlc = nlc
+    #Dispersion operator for step size h
+    Dh = np.exp(-1j*D*h)
     
-    def propagate(self, a_input, b_input):
-        Da = self.Da
-        Db = self.Db
-        nlc = self.nlc
-        h = self.h
+    #Here we go, initialize z tracker and calculate first half dispersion step
+    z = 0
+    A = ifft(np.exp(-1j*D*h/2)*fft(A)) #Half step
+    for kz in range(Nsteps):     
+
+        #Nonlinear step
+        #Runge-Kutta 4th order
+        k1 = fnl(z    , A       )
+        k2 = fnl(z+h/2, A+h*k1/2)
+        k3 = fnl(z+h/2, A+h*k2/2)
+        k4 = fnl(z+h  , A+h*k3  )
+        A = A + (h/6)*(k1+2*k2+2*k3+k4) 
+        z = z + h
         
-        a_output = copy.deepcopy(a_input)
-        b_output = copy.deepcopy(b_input)
-        #Get just the time domain part of the pulses
-        x = a_output.e
-        y = b_output.e
+        #Linear full step (two half-steps back to back)
+        A = ifft(Dh*fft(A))
         
-        for kz in range(int(self.L/self.h)):
-            #Linear step
-            x = ifft(Da*fft(x))
-            y = ifft(Db*fft(y))
+        #Save evolution
+        A_evol[:, kz+1] = A
+        
+        #Let's inform the user now
+        if round(z*1e3,3)==round(zcheck*1e3,3):
+            tdelta = time.time() - tic
+            print('Completed propagation along %0.1f mm (%0.1f s)' %(z*1e3, tdelta))
+            tic = time.time()
+            zcheck += zcheck_step
+
+    A = ifft(np.exp(1j*D*h/2)*fft(A)) #Final half dispersion step back
+    
+    return A, A_evol    
+
+
+
+# class nonlinear_element():
+#     '''
+#     Atributes
+#     D: Dispersion vs frequency
+#     kappa: nonlinear coefficient
+#     L: length (um)
+#     PP: poling period (um)
+#     h: split-step size (um)
+#     '''
+#     def __init__(self, L=1, PP=0, Da=None, Db=None, nlc=None, h=None):
+#         self.L = L
+#         self.PP = PP
+#         self.nlc = nlc
+#         if h is None:
+#             self.h = L/50
+#         else:
+#             self.h = h
+#         self.Da = exp(-self.h*Da)
+#         self.Db = exp(-self.h*Db)
+        
+#     def update_h(self, h_new):
+#         h_old = self.h
+#         self.h = h_new
+#         self.Da = (self.Da)**(h_new/h_old)
+#         self.Db = (self.Db)**(h_new/h_old)
+        
+#     def add_dispersion_functions(self, Da, Db):
+#         self.Da = np.exp(-self.h*Da)
+#         self.Db = np.exp(-self.h*Db)
+        
+#     def add_dispersion_neff(self, neff):
+#         pass
+    
+#     def add_nonlinear_coeff(self, nlc):
+#         self.nlc = nlc
+    
+#     def propagate(self, a_input, b_input):
+#         Da = self.Da
+#         Db = self.Db
+#         nlc = self.nlc
+#         h = self.h
+        
+#         a_output = copy.deepcopy(a_input)
+#         b_output = copy.deepcopy(b_input)
+#         #Get just the time domain part of the pulses
+#         x = a_output.e
+#         y = b_output.e
+        
+#         for kz in range(int(self.L/self.h)):
+#             #Linear step
+#             x = ifft(Da*fft(x))
+#             y = ifft(Db*fft(y))
             
-            #Nonlinear step
-            #Runge-Kutta 4th order
-            [k1, l1] = h*self._nonlinear_operator(x,y,nlc)
-            [k2, l2] = h*self._nonlinear_operator(x+k1/2,y+l1/2,nlc)
-            [k3, l3] = h*self._nonlinear_operator(x+k2/2,y+l2/2,nlc)
-            [k4, l4] = h*self._nonlinear_operator(x+k3,y+l3,nlc)
+#             #Nonlinear step
+#             #Runge-Kutta 4th order
+#             [k1, l1] = h*self._nonlinear_operator(x,y,nlc)
+#             [k2, l2] = h*self._nonlinear_operator(x+k1/2,y+l1/2,nlc)
+#             [k3, l3] = h*self._nonlinear_operator(x+k2/2,y+l2/2,nlc)
+#             [k4, l4] = h*self._nonlinear_operator(x+k3,y+l3,nlc)
                                                    
-            x = x + (1/6)*(k1+2*k2+2*k3+k4)
-            y = y + (1/6)*(l1+2*l2+2*l3+l4)
+#             x = x + (1/6)*(k1+2*k2+2*k3+k4)
+#             y = y + (1/6)*(l1+2*l2+2*l3+l4)
         
-        #Update the pulses
-        a_output.update_td(x)
-        b_output.update_td(y)
-        return a_output,b_output
+#         #Update the pulses
+#         a_output.update_td(x)
+#         b_output.update_td(y)
+#         return a_output,b_output
         
-    def _nonlinear_operator(self, a, b, nlc):
-        f = ifft(nlc*fft(b*np.conj(a)))
-        g = -ifft(nlc*fft(a*a))
-        return np.array([f,g])
+#     def _nonlinear_operator(self, a, b, nlc):
+#         f = ifft(nlc*fft(b*np.conj(a)))
+#         g = -ifft(nlc*fft(a*a))
+#         return np.array([f,g])
 
 
 def test1():
