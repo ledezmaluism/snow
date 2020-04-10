@@ -35,8 +35,7 @@ def get_esd(t, x):
 
 def get_esd_dB(t, x):
     f, Xesd = get_esd(t, x)
-    Xesd_rel = Xesd/np.amax(Xesd)
-    Xesd_dB = 10*log10(Xesd_rel)
+    Xesd_dB = 10*log10(Xesd)
     return f, Xesd_dB
 
 def FWHM(t, x, prominence=1):
@@ -166,7 +165,7 @@ def plot_ESD(t, x, label='Energy Spectral Density (W / Hz^2)', ax=None,
     ax = __plot_vs_freq(f, Xesd, ylabel=label, ax=ax, xlim=xlim, ylim=ylim)
     return ax
         
-def plot_ESD_dB(t, x, label='Energy Spectral Density (dB / Hz^2)', ax=None,
+def plot_ESD_dB(t, x, label='Energy Spectral Density (dBJ / Hz^2)', ax=None,
                 xlim=None, ylim=None):
     f, Xesd = get_esd_dB(t, x)
     ax = __plot_vs_freq(f, Xesd, xlabel='Offset Frequency (THz)', 
@@ -187,7 +186,7 @@ def plot_ESD_absfreq(t, x, f0, label='Energy Spectral Density (W / Hz^2)',
     ax = __plot_vs_freq(f, Xesd, ylabel=label, ax=ax, xlim=xlim, ylim=ylim)
     return ax
         
-def plot_ESD_dB_absfreq(t, x, f0, label='Energy Spectral Density (dB / Hz^2)', 
+def plot_ESD_dB_absfreq(t, x, f0, label='Energy Spectral Density (dBJ / Hz^2)', 
                         ax=None, xlim=None, ylim=None):
     f, Xesd = get_esd_dB(t, x)
     f = f  + f0
@@ -212,7 +211,7 @@ def plot_ESD_vs_wavelength(t, x, f0, label='Energy Spectral Density (W / Hz^2)',
                               xlim=xlim, ylim=ylim)
     return ax
         
-def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dB / Hz^2)', 
+def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dBJ / Hz^2)', 
                            ax=None, xlim=None, ylim=None):
     f, Xesd = get_esd_dB(t, x)
     f = f  + f0
@@ -323,9 +322,13 @@ class pulse:
         self.t = t
         self.dt = t[1]-t[0] #Sample spacing
         self.NFFT = t.size
-        self.f = fftfreq(self.NFFT, self.dt)*1e3 #THz
+        
+        #Relative frequencies
+        self.f = fftfreq(self.NFFT, self.dt)*1e3
         self.Omega = 2*pi*self.f
         self.df = self.f[1]-self.f[0]
+        
+        #Absolute frequencies
         self.fabs = self.f + self.f0
         self.wl = c/self.fabs
         
@@ -336,112 +339,126 @@ class pulse:
 
         #Dynamic atributes, they change as pulse propagates
         if domain=='Time':
-            self.e = x
-            self.E = fft(x, self.NFFT)
+            self.a = x
+            self.A = fft(x, self.NFFT)
         elif domain=='Freq':
-            self.E = x
-            self.e = ifft(x, self.NFFT)
+            self.A = x
+            self.a = ifft(x, self.NFFT)
         else:
             print('Wrong domain option. Options are "Time" or "Freq"')
-        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
-        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
-        esd_rel = self.esd/np.amax(self.esd)
-        self.esd_dB = 10*log10(esd_rel)
 
         if np.amin(self.fabs)<=0:
             print('Warning: negative absolute frequencies found. ' + 
                   'Considering reducing the number of points, ' +  
                   'or increasing the total time')
 
-    def update_td(self, e):
-        if np.size(self.t) == np.size(e):
-            self.e = e
-            self.E = fft(e, self.NFFT)
+    def update_td(self, a):
+        if np.size(self.t) == np.size(a):
+            self.a = a
+            self.A = fft(a, self.NFFT)
             self.update_param()
         else:
             raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.')
 
-    def update_fd(self, E):
-        if np.size(self.t) == np.size(E):
-            self.E = E
-            self.e = ifft(E, self.NFFT)
+    def update_fd(self, A):
+        if np.size(self.t) == np.size(A):
+            self.A = A
+            self.a = ifft(A, self.NFFT)
             self.update_param()
         else:
             raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.') 
 
-    def update_param(self):
-        self.Emag = abs(self.E)*(self.dt*1e-15) # (W^1/2)/Hz
-        self.esd = self.Emag**2 #Energy spectral density (J/Hz = W/Hz^2)
-        esd_rel = self.esd/np.amax(self.esd)
-        self.esd_dB = 10*log10(esd_rel)
+    def energy_td(self):
+        t = self.t
+        x = self.a
+        return energy_td(t, x)
+
+    def energy_fd(self):
+        t = self.t
+        x = self.a
+        return energy_fd(t, x)
+    
+    def get_esd(self):
+        return get_esd(self.t, self.a)
+    
+    def get_esd_dB(self):
+        return get_esd_dB(self.t, self.a)
+
+    def time_center(self):
+        return pulse_center(self.t, self.a)
+
+    def width_FWHM(self, prominence=None):
+        if prominence is None:
+            prominence = 0.25*np.amax(self.a)
+        return FWHM(self.t, self.a, prominence=prominence)
 
     def plot_mag(self, label='Pulse Amplitude (W^1/2)', ax=None, 
                          xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_mag(t, x, label=label, ax=ax, xlim=xlim, ylim=ylim)
         return ax
 
     def plot_magsq(self, label='Pulse Intensity (W)', ax=None, 
                            xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_magsq(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_mag_relative(self, label='Pulse Amplitude (W^1/2)', ax=None, 
                              xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_mag_relative(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_magsq_relative(self, label='Pulse Intensity (W)', ax=None, 
                                xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_magsq_relative(t, x, label, ax, xlim, ylim)
         return ax          
 
     def plot_phase_vs_time(self, label='Pulse Phase (rads)', ax=None,
                            xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_phase_vs_time(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_phase_vs_freq(self, label='Pulse Phase (rads)', ax=None,
                            xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_phase_vs_freq(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_spectrum(self, label='Spectrum Amplitude (W^1/2 / Hz)', ax=None,
                       xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_spectrum(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_ESD(self, label='Energy Spectral Density (W / Hz^2)', ax=None, 
                  xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_ESD(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_ESD_dB(self, label='Energy Spectral Density (dB / Hz^2)', ax=None,
                     xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         ax = plot_ESD_dB(t, x, label, ax, xlim, ylim)
         return ax
 
     def plot_spectrum_absfreq(self, label='Spectrum Amplitude (W^1/2 / Hz)', 
                               ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_spectrum_absfreq(t, x, f0, label, ax, xlim, ylim)
         return ax
@@ -449,7 +466,7 @@ class pulse:
     def plot_ESD_absfreq(self, label='Energy Spectral Density (W / Hz^2)', 
                          ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_ESD_absfreq(t, x, f0, label, ax, xlim, ylim)
         return ax
@@ -457,7 +474,7 @@ class pulse:
     def plot_ESD_dB_absfreq(self, label='Energy Spectral Density (dB / Hz^2)', 
                             ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_ESD_dB_absfreq(t, x, f0, label, ax, xlim, ylim)
         return ax
@@ -465,7 +482,7 @@ class pulse:
     def plot_spectrum_vs_wavelength(self, label='Spectrum Amplitude (W^1/2 / Hz)', 
                                     ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_spectrum_vs_wavelength(t, x, f0, label, ax, xlim, ylim)
         return ax
@@ -473,7 +490,7 @@ class pulse:
     def plot_ESD_vs_wavelength(self, label='Energy Spectral Density (W / Hz^2)', 
                                ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_ESD_vs_wavelength(t, x, f0, label, ax, xlim, ylim)
         return ax
@@ -481,32 +498,11 @@ class pulse:
     def plot_ESD_dB_vs_wavelength(self, label='Energy Spectral Density (dB / Hz^2)', 
                                ax=None, xlim=None, ylim=None):
         t = self.t
-        x = self.e
+        x = self.a
         f0 = self.f0
         ax = plot_ESD_dB_vs_wavelength(t, x, f0, label, ax, xlim, ylim)
         return ax
 
-    def energy_td(self):
-        t = self.t
-        x = self.e
-        return energy_td(t, x)
-
-    def energy_fd(self):
-        t = self.t
-        x = self.e
-        return energy_fd(t, x)
-
-    def photon_number(self):
-        pass
-
-    def time_center(self):
-        pass
-
-    def width_FWHM(self):
-        pass
-
-    def width_rms(self):
-        pass
 
 # class nonlinear_element():
 #     '''
@@ -553,8 +549,8 @@ class pulse:
 #         a_output = copy.deepcopy(a_input)
 #         b_output = copy.deepcopy(b_input)
 #         #Get just the time domain part of the pulses
-#         x = a_output.e
-#         y = b_output.e
+#         x = a_output.a
+#         y = b_output.a
         
 #         for kz in range(int(self.L/self.h)):
 #             #Linear step
