@@ -501,7 +501,7 @@ class nonlinear_element():
         self.f_ref = f_ref
         self.beta_ref = beta_ref
         
-    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v1'):
+    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v1', verbose=True):
         #Get the pulse info:
         t = pulse.t
         A = pulse.a
@@ -581,7 +581,7 @@ class nonlinear_element():
             A_evol[:, kz+1] = A
             
             #Let's inform the user now
-            if round(z*1e3,3)==round(zcheck*1e3,3):
+            if verbose and round(z*1e3,3)==round(zcheck*1e3,3):
                 tdelta = time.time() - tic
                 print('Completed propagation along %0.1f mm (%0.1f s)' %(z*1e3, tdelta))
                 tic = time.time()
