@@ -73,6 +73,21 @@ def refractive_index(material, wl):
         #This one uses a different form of Sellmeier equation...
         A = np.array([4.49361274, -0.02299905, 0.09659086, -1.0505035e-3, 6.30479079e-4])
         n = poly_LT(A, wl)
+    elif material=='LT_SLT':
+        #From Brunner et. al Optics Letters, Vol 28, No 3, 2003
+        A = 4.502483
+        B = 0.007294
+        C = 0.185087
+        D = -0.02357
+        E = 0.073423
+        F = 0.199595
+        G = 0.001
+        H = 7.99724
+        T = 25
+        b = 3.483933e-8*(T+273.15)**2
+        c = 1.607839e-8*(T+273.15)**2
+        n2 = A + (B+b)/(wl**2 - (C+c)**2) + E/(wl**2 - F**2) + G/(wl**2-H**2) + D*wl**2
+        n = np.sqrt(n2)
     else:
         print('wrong material...?')
 
