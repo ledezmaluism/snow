@@ -5,12 +5,9 @@ Spyder Editor
 This is a temporary script file.
 """
 import numpy as np
-from numpy import exp, log10, abs
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
-import copy
 import time
-from util import check
 import scipy.signal
 from scipy.constants import pi, c
 
@@ -35,12 +32,18 @@ def get_esd(t, x):
 
 def get_esd_dB(t, x):
     f, Xesd = get_esd(t, x)
-    Xesd_dB = 10*log10(Xesd)
+    Xesd = Xesd/np.amax(Xesd)
+    Xesd_dB = 10*np.log10(Xesd)
+    return f, Xesd_dB
+
+def get_esd_dBJ(t, x):
+    f, Xesd = get_esd(t, x)
+    Xesd_dB = 10*np.log10(Xesd)
     return f, Xesd_dB
 
 def FWHM(t, x, prominence=1):
     dt = t[1]-t[0] #Sample spacing
-    x2 = np.abs(x)**2 #Intensity
+    x2 = abs(x)**2 #Intensity
     peaks = scipy.signal.find_peaks(x2, prominence=prominence)
     width = scipy.signal.peak_widths(x2, peaks[0])
     fwhm = width[0]*dt
@@ -494,6 +497,7 @@ class nonlinear_element():
         self.beta_1_ref = 1/v_ref
         self.D = beta - beta_ref - Omega/v_ref
         
+        self.Omega = Omega
         self.n = n
         self.beta = beta
         self.beta_1 = beta_1
@@ -501,7 +505,7 @@ class nonlinear_element():
         self.f_ref = f_ref
         self.beta_ref = beta_ref
         
-    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v1', verbose=True):
+    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v2', verbose=True):
         #Get the pulse info:
         t = pulse.t
         A = pulse.a
@@ -517,6 +521,7 @@ class nonlinear_element():
         chi2 = self.chi2
         n = self.n
         omega_ref = 2*pi*self.f_ref
+        Omega = self.Omega
         
         #Pre-compute some stuff:
         tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
@@ -526,6 +531,11 @@ class nonlinear_element():
         #Calculate number of steps needed
         Nsteps = int(L/h) + 1
         
+        #Print out some info
+        print('Crystal length = %0.2f mm' %(L*1e3))
+        print('Step size = %0.2f um' %(h*1e6))
+        print('Number of steps = %i' %(Nsteps))
+            
         #Let's inform the user after every 0.5mm (hard-coded)
         zcheck_step = 0.5e-3
         zcheck = zcheck_step
@@ -538,8 +548,11 @@ class nonlinear_element():
         #Nonlinear coefficient
         def chi(z):
             return omega_ref/(4*n[0]*c)*chi2(z)
+             
+        def chi_v2(z):
+            return chi2(z)*(Omega+omega_ref)/(4*n*c) #Freq dependent
         
-        #Methods
+        #Method v1
         def NEE_v1(z, A):
             phi = phi_1 - phi_2*z
             
@@ -552,10 +565,43 @@ class nonlinear_element():
             f = -1j*chi(z)*f1  - 1*(chi(z)/omega_ref)*f1_deriv
             return f
         
+        #Method v2
+        def NEE_v2(z, A): #dispersive coupling
+            phi = phi_1 - phi_2*z
+            
+            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
+            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
+            
+            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
+               
+            f = -1j*ifft(chi_v2(z)*fft(f1))
+            return f
+        
+        #Method v3
+        def NEE_v3(z, A): #dispersive coupling
+            phi = phi_1 - phi_2*z
+            
+            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
+            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
+            
+            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
+            f1_deriv = np.gradient(f1, dt)
+            
+            f = ifft(-1j*chi_v2(z)*fft(f1)  - 0*(chi_v2(z)/(Omega+omega_ref))*fft(f1_deriv))
+            return f
+        
         if method=='v1':
+            print('Using method = v1 (narrowband approx)')
             fnl = NEE_v1
         elif method=='v2':
-            pass
+            print('Using method = v2 (dispersive)')
+            fnl = NEE_v2
+        elif method=='v3':
+            print('Using method = v3 (full)')
+            fnl = NEE_v3
+        else:
+            print("Didn't understand method chosen. Using default v2")
+            fnl = NEE_v2
         
         #Dispersion operator for step size h
         Dh = np.exp(-1j*D*h)
