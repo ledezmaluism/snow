@@ -10,7 +10,7 @@ import cupy as cp
 import time
 
 NFFT = 2**15
-N = 10000
+N = 50000
 Tmax = 10000
 
 #Cupy
@@ -23,8 +23,7 @@ tic = time.time()
 t = cp.linspace(-Tmax, Tmax, NFFT)
 x = cp.random.normal(size=t.size)
 for k in cp.arange(N):
-    X = cp.fft.fft(x**2)
-    y = cp.fft.ifft(X)
+    X = cp.fft.ifft(cp.fft.fft(x**2))
     
 elapsed = time.time() - tic
 print('Cupy time= ' + str(round(elapsed,5)) + ' seconds')
@@ -42,7 +41,7 @@ for k in np.arange(N):
     y = cp.fft.ifft(X)
     
 elapsed = time.time() - tic
-print('Cupy time= ' + str(round(elapsed,5)) + ' seconds')
+print('Numpy time= ' + str(round(elapsed,5)) + ' seconds')
 
 # #Numpy
 # tic = time.time()
