@@ -587,7 +587,7 @@ class nonlinear_element():
             f1 = scipy.signal.resample(f1up, NFFT) #Downsample
             f1_deriv = np.gradient(f1, dt)
             
-            f = ifft(-1j*chi_v2(z)*fft(f1)  - 0*(chi_v2(z)/(Omega+omega_ref))*fft(f1_deriv))
+            f = ifft(-1j*chi_v2(z)*fft(f1)  - 1*(chi_v2(z)/(Omega+omega_ref))*fft(f1_deriv))
             return f
         
         if method=='v1':
