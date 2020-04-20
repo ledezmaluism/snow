@@ -506,6 +506,8 @@ class nonlinear_element():
         self.beta_ref = beta_ref
         
     def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v2', verbose=True):
+        tic_total = time.time()
+        
         #Get the pulse info:
         t = pulse.t
         A = pulse.a
@@ -635,6 +637,9 @@ class nonlinear_element():
     
         A = ifft(np.exp(1j*D*h/2)*fft(A)) #Final half dispersion step back
         
+        
+        tdelta = time.time() - tic_total
+        print('Total time = %0.1f s' %(tdelta))
         return A, A_evol  
 
 def test1():
