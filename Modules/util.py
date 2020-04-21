@@ -14,3 +14,8 @@ def check(value, ll, ul):
     if ll <= value <= ul:
         return True
     return False
+
+def absorption_coeff(Alpha):
+    # convert from dB/cm to 1/m
+    alpha = np.log((10**(Alpha * 0.1))) * 100
+    return alpha

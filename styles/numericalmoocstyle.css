@@ -1,9 +1,18 @@
+/*
+# Execute this cell to load the notebook's style sheet, then ignore it.
+from IPython.core.display import HTML
+css_file = '../styles/numericalmoocstyle.css'
+HTML(open(css_file, 'r').read())
+*/
+
+
 <link href='http://fonts.googleapis.com/css?family=Alegreya+Sans:100,300,400,500,700,800,900,100italic,300italic,400italic,500italic,700italic,800italic,900italic' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=Arvo:400,700,400italic' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=PT+Mono' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=Shadows+Into+Light' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=Nixie+One' rel='stylesheet' type='text/css'>
 <link href='https://fonts.googleapis.com/css?family=Source+Code+Pro' rel='stylesheet' type='text/css'>
+
 <style>
 
 @font-face {
@@ -16,12 +25,12 @@
 }
 
 div.cell { /* set cell width */
-    width: 750px;
+    width: 1000px;
 }
 
 div #notebook { /* centre the content */
     background: #fff; /* white background for content */
-    width: 1000px;
+    width: 1200px;
     margin: auto;
     padding-left: 0em;
 }
@@ -45,11 +54,11 @@ div.cell.code_cell {
 }
 
 div.text_cell_render{
-    font-family: 'Alegreya Sans' sans-serif;
+	font-family: "Georgia", serif;
     line-height: 140%;
     font-size: 125%;
     font-weight: 400;
-    width:600px;
+    width:800px;
     margin-left:auto;
     margin-right:auto;
 }
@@ -57,40 +66,40 @@ div.text_cell_render{
 
 /* Formatting for header cells */
 .text_cell_render h1 {
-    font-family: 'Nixie One', serif;
+    font-family: "Georgia", serif;
     font-style:regular;
     font-weight: 400;    
     font-size: 45pt;
     line-height: 100%;
-    color: rgb(0,51,102);
+    color: rgb(0,0,0);
     margin-bottom: 0.5em;
     margin-top: 0.5em;
     display: block;
 }
 
 .text_cell_render h2 {
-    font-family: 'Nixie One', serif;
+    font-family: "Georgia", serif;
     font-weight: 400;
     font-size: 30pt;
     line-height: 100%;
-    color: rgb(0,51,102);
+    color: rgb(0,0,128);
     margin-bottom: 0.1em;
     margin-top: 0.3em;
     display: block;
 }	
 
 .text_cell_render h3 {
-    font-family: 'Nixie One', serif;
+    font-family: "Georgia", serif;
     margin-top:16px;
     font-size: 22pt;
     font-weight: 600;
     margin-bottom: 3px;
     font-style: regular;
-    color: rgb(102,102,0);
+    color: rgb(0,0,0);
 }
 
 .text_cell_render h4 {    /*Use this for captions*/
-    font-family: 'Nixie One', serif;
+    font-family: "Georgia", serif;
     font-size: 14pt;
     text-align: center;
     margin-top: 0em;
@@ -99,7 +108,7 @@ div.text_cell_render{
 }
 
 .text_cell_render h5 {  /*Use this for small titles*/
-    font-family: 'Nixie One', sans-serif;
+    font-family: "Georgia", serif;
     font-weight: 400;
     font-size: 16pt;
     color: rgb(163,0,0);
@@ -140,7 +149,6 @@ div.text_cell_render{
 	  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
 </script>
 
-<!––
 <script>
     MathJax.Hub.Config({
                         TeX: {
@@ -160,6 +168,5 @@ div.text_cell_render{
                       ["resetEquationNumbers", MathJax.InputJax.TeX],
                       ["PreProcess", MathJax.Hub],
                       ["Reprocess", MathJax.Hub]
-                     );
+                     ); 
 </script>
-––>
