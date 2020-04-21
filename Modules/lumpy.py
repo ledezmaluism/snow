@@ -19,6 +19,7 @@ import matplotlib.cm as cm
 import scipy.integrate as integrate
 
 from scipy.constants import pi, c
+from numpy import abs
 
 
 def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
@@ -324,20 +325,64 @@ def mode_area(mode, n):
 def deff():
     pass
 
-def cross():
-    pass
 
-def N(x, y, Ex, Ey, Ez, Hx, Hy, Hz):
-    pass
+class mode():
+    
+    def __init__(self, E, H):
+        self.E = E
+        self.H = H
+        
+    def poynting(self):
+        E = self.E
+        H = self.H
+        S = E.cross(H.conj())
+        return S
+    
+    def N(self):
+        pass
 
 class field_2D():
     
     def __init__(self, x, y, Ax, Ay, Az):
-        self.x = x
-        self.y = y
-        self.Ax = Ax
-        self.Ay = Ay
-        self.Az = Az
+        self.xx = np.squeeze(x)
+        self.yy = np.squeeze(y)
+        self.x = Ax
+        self.y = Ay
+        self.z = Az
+        
+    def dot(self, E):
+        Ax = self.x
+        Ay = self.y
+        Az = self.z
+        Ex = E.x
+        Ey = E.y
+        Ez = E.z
+        return Ex*Ax + Ey*Ay + Ez*Az
+    
+    def conj(self):
+        Ax = np.conj(self.x)
+        Ay = np.conj(self.y)
+        Az = np.conj(self.z)
+        xx = self.xx
+        yy = self.yy
+        A = field_2D(xx, yy, Ax, Ay, Az)
+        return A
+    
+    def cross(self, E):
+        Ax = self.x
+        Ay = self.y
+        Az = self.z
+        Ex = E.x
+        Ey = E.y
+        Ez = E.z
+        Cx = Ay*Ez - Az*Ey
+        Cy = Az*Ex - Ax*Ez
+        Cz = Ax*Ey - Ay*Ex
+        C = field_2D(self.xx, self.yy, Cx, Cy, Cz)
+        return C
+    
+    def magsq(self):
+        return abs(self.dot(self.conj()))
 
 ###############################################################################
 ###############################################################################
@@ -387,4 +432,5 @@ def _test_():
                              w_slab, wg_length, h_margin)
 
 if __name__ == '__main__':
-    _test_()
+    # _test_()
+    pass
