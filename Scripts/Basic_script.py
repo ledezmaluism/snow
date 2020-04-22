@@ -30,7 +30,7 @@ Load template:
     This is important as the template contains the materials information
 '''
 if 'mode' not in vars():
-    lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2019b/api/python/lumapi.py")
+    lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2020a/api/python/lumapi.py")
     mode = lumapi.MODE("Template_Luis.lms")
 
 '''

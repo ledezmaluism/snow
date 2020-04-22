@@ -16,12 +16,11 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 #import matplotlib.patches as patches
-#import imp
+import scipy.integrate as integrate
 
 from scipy.constants import pi, c
-#lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/MODE/api/python/lumapi.py")
-#Start lumerical MODE session
-#mode = lumapi.MODE("Template_Luis.lms")
+from numpy import abs
+
 
 def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
                x0=0, name='ridge'):
@@ -316,8 +315,122 @@ def plot_2D_mode(F, x, y, h_LN, h_substrate, h_etch, w_ridge, w_slab, theta,
     
     fig.colorbar(im)
     
+    
+def nonlinear_polarization(chi2, Ex1, Ex2):
+    pass
+
 def mode_area(mode, n):
     pass
 
 def deff():
+    pass
+
+
+class mode():
+    
+    def __init__(self, E, H):
+        self.E = E
+        self.H = H
+        
+    def poynting(self):
+        E = self.E
+        H = self.H
+        S = E.cross(H.conj())
+        return S
+    
+    def N(self):
+        pass
+
+class field_2D():
+    
+    def __init__(self, x, y, Ax, Ay, Az):
+        self.xx = np.squeeze(x)
+        self.yy = np.squeeze(y)
+        self.x = Ax
+        self.y = Ay
+        self.z = Az
+        
+    def dot(self, E):
+        Ax = self.x
+        Ay = self.y
+        Az = self.z
+        Ex = E.x
+        Ey = E.y
+        Ez = E.z
+        return Ex*Ax + Ey*Ay + Ez*Az
+    
+    def conj(self):
+        Ax = np.conj(self.x)
+        Ay = np.conj(self.y)
+        Az = np.conj(self.z)
+        xx = self.xx
+        yy = self.yy
+        A = field_2D(xx, yy, Ax, Ay, Az)
+        return A
+    
+    def cross(self, E):
+        Ax = self.x
+        Ay = self.y
+        Az = self.z
+        Ex = E.x
+        Ey = E.y
+        Ez = E.z
+        Cx = Ay*Ez - Az*Ey
+        Cy = Az*Ex - Ax*Ez
+        Cz = Ax*Ey - Ay*Ex
+        C = field_2D(self.xx, self.yy, Cx, Cy, Cz)
+        return C
+    
+    def magsq(self):
+        return abs(self.dot(self.conj()))
+
+###############################################################################
+###############################################################################
+def _test_():
+    '''
+    Test function for module  
+    '''
+    import imp
+    if 'mode' not in vars():
+        lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2020a/api/python/lumapi.py")
+        mode = lumapi.MODE("Template_Luis.lms")
+    
+    '''
+    Geometry
+    '''
+    wavelength = 1
+    h_LN = 0.7
+    h_etch = 0.3
+    w_ridge = 1.5
+    h_slab = h_LN - h_etch
+    theta = 60
+    wg_length = 10
+    w_ridge_base = w_ridge + 2*h_etch/np.tan(theta*pi/180)
+
+    '''
+    Simulation volume
+    '''
+    w_slab = 10*wavelength + 2*w_ridge
+    h_margin = 4*wavelength
+    h_substrate = 4*wavelength
+    meshsize = wavelength/20
+    finemesh = wavelength/80
+    
+    '''
+    Materials
+    '''
+    material_substrate = "SiO2_analytic"    
+    material_thinfilm = "LN_analytic_MgO_doped_xne"
+    
+    '''
+    Drawing and setup
+    '''
+    draw_wg(mode, material_thinfilm, material_substrate,
+                  h_LN, h_substrate, h_etch, w_ridge, w_slab, theta, wg_length)
+    add_fine_mesh(mode, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
+    add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, 
+                             w_slab, wg_length, h_margin)
+
+if __name__ == '__main__':
+    # _test_()
     pass
