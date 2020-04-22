@@ -4,7 +4,7 @@ Created on Wed Feb 13 21:06:34 2019
 @author: luis ledezma
 
 
-LUMPY: python module for simulations with Lumerical
+Python module for simulations with Lumerical
 
 to do: 
     replace functions for drawing waveguides for native lumerical function
@@ -24,15 +24,12 @@ from scipy.integrate import simps
 
 def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
                x0=0, name='ridge'):
-    '''
-    Units: um
-    '''
-    #Change everything to meters
-    h_LN = float(h_LN*1e-6)
-    h_etch = float(h_etch*1e-6)
-    w_ridge = float(w_ridge*1e-6)
-    wg_length = float(wg_length*1e-6)
-    x0 = float(x0*1e-6)
+
+    h_LN = float(h_LN)
+    h_etch = float(h_etch)
+    w_ridge = float(w_ridge)
+    wg_length = float(wg_length)
+    x0 = float(x0)
     
     #Calculate some extra geometric parameters
     h_slab = h_LN - h_etch
@@ -78,17 +75,13 @@ def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
 
 def draw_substrate(mode, material_LN, material_substrate, h_LN, h_substrate, 
                    h_etch, w_slab, wg_length, x0=0):
-    '''
-    Units: um
-    '''
-    #Change everything to meters
-    h_LN = float(h_LN*1e-6)
     
-    h_substrate = float(h_substrate*1e-6)
-    h_etch = float(h_etch*1e-6)
-    w_slab = float(w_slab*1e-6)
-    wg_length = float(wg_length*1e-6)
-    x0 = float(x0*1e-6)
+    h_LN = float(h_LN)
+    h_substrate = float(h_substrate)
+    h_etch = float(h_etch)
+    w_slab = float(w_slab)
+    wg_length = float(wg_length)
+    x0 = float(x0)
     
     #Calculate some extra geometric parameters
     h_slab = h_LN - h_etch
@@ -138,14 +131,12 @@ def add_fine_mesh(mode, finemesh, h_LN, w_ridge, x_factor=1.1, y_factor=1.1):
    
 
 def add_fine_mesh_lowlevel(mode, finemesh, x0, y0, x_span, y_span):
-    '''
-    Units: um
-    '''
-    finemesh = float(finemesh*1e-6)
-    x0 = float(x0*1e-6)
-    y0 = float(y0*1e-6)
-    x_span = float(x_span*1e-6)
-    y_span = float(y_span*1e-6)
+
+    finemesh = float(finemesh)
+    x0 = float(x0)
+    y0 = float(y0)
+    x_span = float(x_span)
+    y_span = float(y_span)
     
     mode.addmesh()
     mode.set("x", x0)
@@ -161,10 +152,10 @@ def add_fine_mesh_lowlevel(mode, finemesh, x0, y0, x_span, y_span):
 def add_1D_mode_solver(mode, meshsize, h_LN, h_substrate, h_margin):
     
     #Change everything to meters
-    meshsize = meshsize*1e-6
-    h_LN = h_LN*1e-6
-    h_substrate = h_substrate*1e-6
-    h_margin = h_margin*1e-6
+    meshsize = meshsize
+    h_LN = h_LN
+    h_substrate = h_substrate
+    h_margin = h_margin
     
     #Calculate simulation volume
     Ymin = -h_substrate - h_margin
@@ -183,13 +174,12 @@ def add_1D_mode_solver(mode, meshsize, h_LN, h_substrate, h_margin):
 def add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, w_slab, wg_length,
                        h_margin):
            
-    #Change everything to meters
-    meshsize = float(meshsize*1e-6)
-    h_LN = float(h_LN*1e-6)
-    h_substrate = float(h_substrate*1e-6)
-    w_slab = float(w_slab*1e-6)
-    wg_length = float(wg_length*1e-6)
-    h_margin = float(h_margin*1e-6)
+    meshsize = float(meshsize)
+    h_LN = float(h_LN)
+    h_substrate = float(h_substrate)
+    w_slab = float(w_slab)
+    wg_length = float(wg_length)
+    h_margin = float(h_margin)
     
     #Calculate simulation volume
     pml_margin = 12*meshsize
@@ -219,7 +209,7 @@ def add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, w_slab, wg_length,
     time.sleep(0.1)
 
 def solve_mode(mode, wavelength, nmodes=4):
-    mode.set("wavelength", wavelength*1e-6)
+    mode.set("wavelength", wavelength)
     mode.set("number of trial modes", nmodes)
     n = int(mode.findmodes())
     
@@ -234,14 +224,14 @@ def solve_mode(mode, wavelength, nmodes=4):
 def dispersion_analysis(mode, wavelength, mode_number):
     mode.selectmode(mode_number)
     mode.setanalysis("track selected mode",1)
-    mode.setanalysis("stop wavelength", wavelength*1e-6)
+    mode.setanalysis("stop wavelength", wavelength)
     mode.setanalysis("detailed dispersion calculation",1)
     mode.setanalysis("number of points", 1)
     mode.setanalysis("number of trial modes", 5)
     mode.frequencysweep()
     vg = mode.getdata("frequencysweep","vg")*1e3/1e15 #mm/fs
     D = mode.getdata("frequencysweep","D")
-    GVD = -D*(wavelength*1e-6)**2/(2*pi*c)*1e27 #"fs^2/mm"
+    GVD = -D*(wavelength)**2/(2*pi*c)*1e27 #"fs^2/mm"
     return vg, GVD
 
 def get_mode(mode, k):         
@@ -317,7 +307,9 @@ def plot_2D_mode(F, x, y, h_LN, h_substrate, h_etch, w_ridge, w_slab, theta,
 
 
 class mode():
-    
+    '''
+    Full mode including both E and H fields
+    '''
     def __init__(self, E, H):
         self.E = E
         self.H = H
@@ -336,7 +328,9 @@ class mode():
         return N
 
 class field_2D():
-    
+    '''
+    Transversal vector field
+    '''
     def __init__(self, x, y, Ax, Ay, Az):
         self.xx = np.squeeze(x)
         self.yy = np.squeeze(y)
@@ -378,11 +372,11 @@ class field_2D():
     def magsq(self):
         return abs(self.dot(self.conj()))
     
-    def overlap3(self, E2, E3, axis='x'):
+    def overlap3(self, E2, E3, axis='xxx'):
         x = self.xx
         y = self.yy
         
-        if axis=='x':
+        if axis=='xxx':
             integrand = self.x * E2.x * E3.x
         
         return simps(simps(integrand, y), x)
