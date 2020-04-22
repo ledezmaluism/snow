@@ -16,10 +16,10 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 #import matplotlib.patches as patches
-import scipy.integrate as integrate
 
 from scipy.constants import pi, c
 from numpy import abs
+from scipy.integrate import simps
 
 
 def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
@@ -246,8 +246,8 @@ def dispersion_analysis(mode, wavelength, mode_number):
 
 def get_mode(mode, k):         
     #Get grid
-    x = mode.getdata("FDE::data::mode"+str(k),"x")
-    y = mode.getdata("FDE::data::mode"+str(k),"y")
+    x = np.squeeze(mode.getdata("FDE::data::mode"+str(k),"x"))
+    y = np.squeeze(mode.getdata("FDE::data::mode"+str(k),"y"))
     
     #Get fields
     Ex = mode.getdata("FDE::data::mode"+str(k),"Ex")
@@ -314,16 +314,6 @@ def plot_2D_mode(F, x, y, h_LN, h_substrate, h_etch, w_ridge, w_slab, theta,
 #    ax.add_patch(ridge)
     
     fig.colorbar(im)
-    
-    
-def nonlinear_polarization(chi2, Ex1, Ex2):
-    pass
-
-def mode_area(mode, n):
-    pass
-
-def deff():
-    pass
 
 
 class mode():
@@ -339,16 +329,20 @@ class mode():
         return S
     
     def N(self):
-        pass
+        S = self.poynting()
+        x = self.E.xx
+        y = self.E.yy
+        N = 0.5*simps(simps(S.z, y), x)
+        return N
 
 class field_2D():
     
     def __init__(self, x, y, Ax, Ay, Az):
         self.xx = np.squeeze(x)
         self.yy = np.squeeze(y)
-        self.x = Ax
-        self.y = Ay
-        self.z = Az
+        self.x = np.squeeze(Ax)
+        self.y = np.squeeze(Ay)
+        self.z = np.squeeze(Az)
         
     def dot(self, E):
         Ax = self.x
@@ -383,6 +377,15 @@ class field_2D():
     
     def magsq(self):
         return abs(self.dot(self.conj()))
+    
+    def overlap3(self, E2, E3, axis='x'):
+        x = self.xx
+        y = self.yy
+        
+        if axis=='x':
+            integrand = self.x * E2.x * E3.x
+        
+        return simps(simps(integrand, y), x)
 
 ###############################################################################
 ###############################################################################
