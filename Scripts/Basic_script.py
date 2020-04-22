@@ -17,11 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import imp
 
-import os
-cwd = os.getcwd()
-os.chdir('..')
-import Modules.lumpy as lumpy
-os.chdir(cwd)
+import lumerical as lum
 
 from scipy.constants import pi
 
@@ -76,8 +72,8 @@ material_thinfilm = "LN_analytic_MgO_doped_xne"
 '''
 Drawing and setup
 '''
-lumpy.draw_wg(mode, material_thinfilm, material_substrate,
+lum.draw_wg(mode, material_thinfilm, material_substrate,
               h_LN, h_substrate, h_etch, w_ridge, w_slab, theta, wg_length)
-lumpy.add_fine_mesh(mode, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
-lumpy.add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, 
+lum.add_fine_mesh(mode, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
+lum.add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, 
                          w_slab, wg_length, h_margin)
