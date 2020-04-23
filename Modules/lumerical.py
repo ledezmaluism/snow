@@ -22,7 +22,7 @@ from numpy import abs
 from scipy.integrate import simps
 
 
-def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
+def draw_ridge(MODE, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
                x0=0, name='ridge'):
 
     h_LN = float(h_LN)
@@ -38,42 +38,42 @@ def draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
     Zmax = wg_length/2
     
     #Main ridge
-    mode.addrect()
-    mode.set("name",name)
-    mode.set("material", material_LN)
-    mode.set("x", x0)
-    mode.set("x span", w_ridge)
-    mode.set("y min", h_slab)
-    mode.set("y max", h_LN)
-    mode.set("z min", Zmin)
-    mode.set("z max", Zmax)
-    mode.set("alpha", 0.5)
+    MODE.addrect()
+    MODE.set("name",name)
+    MODE.set("material", material_LN)
+    MODE.set("x", x0)
+    MODE.set("x span", w_ridge)
+    MODE.set("y min", h_slab)
+    MODE.set("y max", h_LN)
+    MODE.set("z min", Zmin)
+    MODE.set("z max", Zmax)
+    MODE.set("alpha", 0.5)
     
     #Draw left sidewall
-    mode.addtriangle()
-    mode.set("name",name+"_left_sidewall")
-    mode.set("material", material_LN)
-    mode.set("x", x0-w_ridge/2)
-    mode.set("y", h_slab)
-    mode.set("z min", Zmin)
-    mode.set("z max", Zmax)
+    MODE.addtriangle()
+    MODE.set("name",name+"_left_sidewall")
+    MODE.set("material", material_LN)
+    MODE.set("x", x0-w_ridge/2)
+    MODE.set("y", h_slab)
+    MODE.set("z min", Zmin)
+    MODE.set("z max", Zmax)
     V = np.array([[0, -w_sidewall, 0],[0, 0, h_etch]])
-    mode.set("vertices", V)
-    mode.set("alpha", 0.5)
+    MODE.set("vertices", V)
+    MODE.set("alpha", 0.5)
     
     #Draw right sidewall
-    mode.addtriangle()
-    mode.set("name",name+"_right_sidewall")
-    mode.set("material", material_LN)
-    mode.set("x", x0+w_ridge/2)
-    mode.set("y", h_slab)
-    mode.set("z min", Zmin)
-    mode.set("z max", Zmax)
+    MODE.addtriangle()
+    MODE.set("name",name+"_right_sidewall")
+    MODE.set("material", material_LN)
+    MODE.set("x", x0+w_ridge/2)
+    MODE.set("y", h_slab)
+    MODE.set("z min", Zmin)
+    MODE.set("z max", Zmax)
     V = np.array([[0, w_sidewall, 0],[0, 0, h_etch]])
-    mode.set("vertices", V)
-    mode.set("alpha", 0.5)
+    MODE.set("vertices", V)
+    MODE.set("alpha", 0.5)
 
-def draw_substrate(mode, material_LN, material_substrate, h_LN, h_substrate, 
+def draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate, 
                    h_etch, w_slab, wg_length, x0=0):
     
     h_LN = float(h_LN)
@@ -89,48 +89,48 @@ def draw_substrate(mode, material_LN, material_substrate, h_LN, h_substrate,
     Zmax = wg_length/2
     
     #Draw substrate
-    mode.addrect()
-    mode.set("name","Substrate")
-    mode.set("material", material_substrate)
-    mode.set("x", x0)
-    mode.set("x span", w_slab)
-    mode.set("y min", -h_substrate)
-    mode.set("y max", 0)
-    mode.set("z min", Zmin)
-    mode.set("z max", Zmax)
-    mode.set("alpha", 0.5)
+    MODE.addrect()
+    MODE.set("name","Substrate")
+    MODE.set("material", material_substrate)
+    MODE.set("x", x0)
+    MODE.set("x span", w_slab)
+    MODE.set("y min", -h_substrate)
+    MODE.set("y max", 0)
+    MODE.set("z min", Zmin)
+    MODE.set("z max", Zmax)
+    MODE.set("alpha", 0.5)
     
     #Draw slab
-    mode.addrect()
-    mode.set("name","slab")
-    mode.set("material", material_LN)
-    mode.set("x", x0)
-    mode.set("x span", w_slab)
-    mode.set("y min", 0)
-    mode.set("y max", h_slab)
-    mode.set("z min", Zmin)
-    mode.set("z max", Zmax)
-    mode.set("alpha", 0.5)
+    MODE.addrect()
+    MODE.set("name","slab")
+    MODE.set("material", material_LN)
+    MODE.set("x", x0)
+    MODE.set("x span", w_slab)
+    MODE.set("y min", 0)
+    MODE.set("y max", h_slab)
+    MODE.set("z min", Zmin)
+    MODE.set("z max", Zmax)
+    MODE.set("alpha", 0.5)
     
-def draw_wg(mode, material_LN, material_substrate, h_LN, h_substrate, h_etch, 
+def draw_wg(MODE, material_LN, material_substrate, h_LN, h_substrate, h_etch, 
             w_ridge, w_slab, theta, wg_length, x0=0, delete=True):
     
     if delete:
-        mode.switchtolayout()
-        mode.deleteall()
-    draw_substrate(mode, material_LN, material_substrate, h_LN, h_substrate,
+        MODE.switchtolayout()
+        MODE.deleteall()
+    draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate,
                    h_etch, w_slab, wg_length, x0=0)
-    draw_ridge(mode, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
+    draw_ridge(MODE, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
                x0, name='ridge')
     time.sleep(0.1)
     
-def add_fine_mesh(mode, finemesh, h_LN, w_ridge, x_factor=1.1, y_factor=1.1):
+def add_fine_mesh(MODE, finemesh, h_LN, w_ridge, x_factor=1.1, y_factor=1.1):
     x_span = w_ridge*x_factor
     y_span = h_LN*y_factor
-    add_fine_mesh_lowlevel(mode, finemesh, 0, h_LN/2, x_span, y_span)
+    add_fine_mesh_lowlevel(MODE, finemesh, 0, h_LN/2, x_span, y_span)
    
 
-def add_fine_mesh_lowlevel(mode, finemesh, x0, y0, x_span, y_span):
+def add_fine_mesh_lowlevel(MODE, finemesh, x0, y0, x_span, y_span):
 
     finemesh = float(finemesh)
     x0 = float(x0)
@@ -138,18 +138,18 @@ def add_fine_mesh_lowlevel(mode, finemesh, x0, y0, x_span, y_span):
     x_span = float(x_span)
     y_span = float(y_span)
     
-    mode.addmesh()
-    mode.set("x", x0)
-    mode.set("x span", x_span)
-    mode.set("y", y0)
-    mode.set("y span", y_span)
-    mode.set("override x mesh", 1)
-    mode.set("override y mesh", 1)
-    mode.set("override z mesh", 0)
-    mode.set("dx", finemesh);
-    mode.set("dy", finemesh);
+    MODE.addmesh()
+    MODE.set("x", x0)
+    MODE.set("x span", x_span)
+    MODE.set("y", y0)
+    MODE.set("y span", y_span)
+    MODE.set("override x mesh", 1)
+    MODE.set("override y mesh", 1)
+    MODE.set("override z mesh", 0)
+    MODE.set("dx", finemesh);
+    MODE.set("dy", finemesh);
 
-def add_1D_mode_solver(mode, meshsize, h_LN, h_substrate, h_margin):
+def add_1D_mode_solver(MODE, meshsize, h_LN, h_substrate, h_margin):
     
     #Change everything to meters
     meshsize = meshsize
@@ -161,17 +161,17 @@ def add_1D_mode_solver(mode, meshsize, h_LN, h_substrate, h_margin):
     Ymin = -h_substrate - h_margin
     Ymax = h_LN + h_margin
     
-    mode.addfde()
-    mode.set("solver type","1D Y:Z prop")
-    mode.set("z", 0)
-    mode.set("x", 0);
-    mode.set("y max", Ymax); 
-    mode.set("y min", Ymin);
+    MODE.addfde()
+    MODE.set("solver type","1D Y:Z prop")
+    MODE.set("z", 0)
+    MODE.set("x", 0);
+    MODE.set("y max", Ymax); 
+    MODE.set("y min", Ymin);
 
-    mode.set("define y mesh by","maximum mesh step");
-    mode.set("dy", meshsize);
+    MODE.set("define y mesh by","maximum mesh step");
+    MODE.set("dy", meshsize);
 
-def add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, w_slab, wg_length,
+def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
                        h_margin):
            
     meshsize = float(meshsize)
@@ -187,77 +187,77 @@ def add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, w_slab, wg_length,
     Ymin = -h_substrate + pml_margin
     Ymax = h_LN + h_margin
     
-    # add 2D mode solver (waveguide cross-section)
-    mode.addfde()  
-    mode.set("solver type", "2D Z normal")
-    mode.set("z", 0)
-    mode.set("x", 0)
-    mode.set("x span", X_span)  
-    mode.set("y max", Ymax)
-    mode.set("y min", Ymin)
-    mode.set("solver type","2D Z normal")
-    mode.set("define x mesh by","maximum mesh step")
-    mode.set("dx", meshsize)
-    mode.set("define y mesh by","maximum mesh step")
-    mode.set("dy", meshsize)
-    mode.set("x min bc", "PML")
-    mode.set("y min bc", "PML")
-    mode.set("x max bc", "PML")
-    mode.set("y max bc", "PML")
-    mode.set("mesh refinement", "conformal variant 0")
+    # add 2D MODE solver (waveguide cross-section)
+    MODE.addfde()  
+    MODE.set("solver type", "2D Z normal")
+    MODE.set("z", 0)
+    MODE.set("x", 0)
+    MODE.set("x span", X_span)  
+    MODE.set("y max", Ymax)
+    MODE.set("y min", Ymin)
+    MODE.set("solver type","2D Z normal")
+    MODE.set("define x mesh by","maximum mesh step")
+    MODE.set("dx", meshsize)
+    MODE.set("define y mesh by","maximum mesh step")
+    MODE.set("dy", meshsize)
+    MODE.set("x min bc", "PML")
+    MODE.set("y min bc", "PML")
+    MODE.set("x max bc", "PML")
+    MODE.set("y max bc", "PML")
+    MODE.set("mesh refinement", "conformal variant 0")
     
     time.sleep(0.1)
 
-def solve_mode(mode, wavelength, nmodes=20):
-    mode.set("wavelength", wavelength)
-    mode.set("number of trial modes", nmodes)
-    n = int(mode.findmodes())
+def solve_mode(MODE, wavelength, nmodes=20):
+    MODE.set("wavelength", wavelength)
+    MODE.set("number of trial modes", nmodes)
+    n = int(MODE.findmodes())
     
     neff = np.zeros(n) #effective  index matrix
     TE = np.zeros(n) #TE polarization fraction
     for k in range(n):    
-        neff[k] = np.float(np.real(mode.getdata("FDE::data::mode"+str(k+1), "neff")))
-        TE[k] = np.float(mode.getdata("FDE::data::mode"+str(k+1), "TE polarization fraction"))
+        neff[k] = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k+1), "neff")))
+        TE[k] = np.float(MODE.getdata("FDE::data::mode"+str(k+1), "TE polarization fraction"))
 
     return neff, TE
 
-def dispersion_analysis(mode, wavelength, mode_number):
-    mode.selectmode(mode_number)
-    mode.setanalysis("track selected mode",1)
-    mode.setanalysis("stop wavelength", wavelength)
-    mode.setanalysis("detailed dispersion calculation",1)
-    mode.setanalysis("number of points", 1)
-    mode.setanalysis("number of trial modes", 5)
-    mode.frequencysweep()
-    vg = mode.getdata("frequencysweep","vg")*1e3/1e15 #mm/fs
-    D = mode.getdata("frequencysweep","D")
+def dispersion_analysis(MODE, wavelength, mode_number):
+    MODE.selectMODE(mode_number)
+    MODE.setanalysis("track selected mode",1)
+    MODE.setanalysis("stop wavelength", wavelength)
+    MODE.setanalysis("detailed dispersion calculation",1)
+    MODE.setanalysis("number of points", 1)
+    MODE.setanalysis("number of trial modes", 5)
+    MODE.frequencysweep()
+    vg = MODE.getdata("frequencysweep","vg")*1e3/1e15 #mm/fs
+    D = MODE.getdata("frequencysweep","D")
     GVD = -D*(wavelength)**2/(2*pi*c)*1e27 #"fs^2/mm"
     return vg, GVD
 
-def get_mode(mode, k):         
-    #Get grid
-    x = np.squeeze(mode.getdata("FDE::data::mode"+str(k),"x"))
-    y = np.squeeze(mode.getdata("FDE::data::mode"+str(k),"y"))
+# def get_mode(MODE, k):         
+#     #Get grid
+#     x = np.squeeze(MODE.getdata("FDE::data::mode"+str(k),"x"))
+#     y = np.squeeze(MODE.getdata("FDE::data::mode"+str(k),"y"))
     
-    #Get fields
-    Ex = mode.getdata("FDE::data::mode"+str(k),"Ex")
-    Ey = mode.getdata("FDE::data::mode"+str(k),"Ey")
-    Ez = mode.getdata("FDE::data::mode"+str(k),"Ez")
-    Hx = mode.getdata("FDE::data::mode"+str(k),"Hx")
-    Hy = mode.getdata("FDE::data::mode"+str(k),"Hy")
-    Hz = mode.getdata("FDE::data::mode"+str(k),"Hz")
+#     #Get fields
+#     Ex = MODE.getdata("FDE::data::mode"+str(k),"Ex")
+#     Ey = MODE.getdata("FDE::data::mode"+str(k),"Ey")
+#     Ez = MODE.getdata("FDE::data::mode"+str(k),"Ez")
+#     Hx = MODE.getdata("FDE::data::mode"+str(k),"Hx")
+#     Hy = MODE.getdata("FDE::data::mode"+str(k),"Hy")
+#     Hz = MODE.getdata("FDE::data::mode"+str(k),"Hz")
     
-    #Get rid of singleton dimensions
-    Ex = np.squeeze(Ex)
-    Ey = np.squeeze(Ey)
-    Ez = np.squeeze(Ez)
-    Hx = np.squeeze(Hx)
-    Hy = np.squeeze(Hy)
-    Hz = np.squeeze(Hz)
+#     #Get rid of singleton dimensions
+#     Ex = np.squeeze(Ex)
+#     Ey = np.squeeze(Ey)
+#     Ez = np.squeeze(Ez)
+#     Hx = np.squeeze(Hx)
+#     Hy = np.squeeze(Hy)
+#     Hz = np.squeeze(Hz)
     
-    neff = np.float(np.real(mode.getdata("FDE::data::mode"+str(k), "neff")))
+#     neff = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k), "neff")))
     
-    return x, y, Ex, Ey, Ez, Hx, Hy, Hz, neff
+#     return x, y, Ex, Ey, Ez, Hx, Hy, Hz, neff
 
 def plot_2D_mode(F, x, y, h_LN, h_substrate, h_etch, w_ridge, w_slab, theta,
                  x_margin_view=1, y_margin_view=1, cmap=cm.jet):
@@ -310,10 +310,43 @@ class mode():
     '''
     Full mode including both E and H fields
     '''
-    def __init__(self, E, H):
+    def __init__(self):
+        pass
+    
+    def set_manually(self, E, H, neff):
         self.E = E
         self.H = H
+        self.neff = neff
+    
+    def get_from_lumerical(self, MODE, k):
+        #Get grid
+        x = MODE.getdata("FDE::data::mode"+str(k),"x")
+        y = MODE.getdata("FDE::data::mode"+str(k),"y")
         
+        #Get fields
+        Ex = MODE.getdata("FDE::data::mode"+str(k),"Ex")
+        Ey = MODE.getdata("FDE::data::mode"+str(k),"Ey")
+        Ez = MODE.getdata("FDE::data::mode"+str(k),"Ez")
+        Hx = MODE.getdata("FDE::data::mode"+str(k),"Hx")
+        Hy = MODE.getdata("FDE::data::mode"+str(k),"Hy")
+        Hz = MODE.getdata("FDE::data::mode"+str(k),"Hz")
+        
+        #Get rid of singleton dimensions
+        x = np.squeeze(x)
+        y = np.squeeze(y)
+        Ex = np.squeeze(Ex)
+        Ey = np.squeeze(Ey)
+        Ez = np.squeeze(Ez)
+        Hx = np.squeeze(Hx)
+        Hy = np.squeeze(Hy)
+        Hz = np.squeeze(Hz)
+        
+        neff = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k), "neff")))
+        
+        self.E = field_2D(x, y, Ex, Ey, Ez)
+        self.H = field_2D(x, y, Hx, Hy, Hz)
+        self.neff = neff
+
     def poynting(self):
         E = self.E
         H = self.H
@@ -388,9 +421,9 @@ def _test_():
     Test function for module  
     '''
     import imp
-    if 'mode' not in vars():
+    if 'MODE' not in vars():
         lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2020a/api/python/lumapi.py")
-        mode = lumapi.MODE("Template_Luis.lms")
+        MODE = lumapi.MODE("Template_Luis.lms")
     
     '''
     Geometry
@@ -422,10 +455,10 @@ def _test_():
     '''
     Drawing and setup
     '''
-    draw_wg(mode, material_thinfilm, material_substrate,
+    draw_wg(MODE, material_thinfilm, material_substrate,
                   h_LN, h_substrate, h_etch, w_ridge, w_slab, theta, wg_length)
-    add_fine_mesh(mode, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
-    add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, 
+    add_fine_mesh(MODE, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
+    add_2D_MODE_solver(MODE, meshsize, h_LN, h_substrate, 
                              w_slab, wg_length, h_margin)
 
 if __name__ == '__main__':
