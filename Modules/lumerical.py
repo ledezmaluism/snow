@@ -208,7 +208,7 @@ def add_2D_mode_solver(mode, meshsize, h_LN, h_substrate, w_slab, wg_length,
     
     time.sleep(0.1)
 
-def solve_mode(mode, wavelength, nmodes=4):
+def solve_mode(mode, wavelength, nmodes=20):
     mode.set("wavelength", wavelength)
     mode.set("number of trial modes", nmodes)
     n = int(mode.findmodes())
