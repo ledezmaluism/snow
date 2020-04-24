@@ -41,6 +41,18 @@ def refractive_index(material, wl):
     Refractive index at given wavelength
 
     '''
+    
+    #Let's check for the right units
+    if 100e-9<wl<20e-6:
+        wl = wl*1e6 #units were probably meters
+    elif 100<wl<20000:
+        wl = wl*1e-3 #Units were probably nm
+    elif 0.1<wl<20:
+        pass #Units were microns, do nothing
+    else:
+        print('Warning = Wavelength value seems out of range!')
+            
+    
     A = 0
     B = 0
     if material=='SiO2':
@@ -88,6 +100,8 @@ def refractive_index(material, wl):
         c = 1.607839e-8*(T+273.15)**2
         n2 = A + (B+b)/(wl**2 - (C+c)**2) + E/(wl**2 - F**2) + G/(wl**2-H**2) + D*wl**2
         n = np.sqrt(n2)
+    elif material=='Air':
+        n = 1
     else:
         print('wrong material...?')
 
