@@ -11,11 +11,15 @@ import numpy as np
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 
+import materials
 import analysis
 
 class waveguide:
 
-    def __init__(self, w_top=1, h_ridge=1, h_slab=0.5, theta=60):
+    def __init__(self, w_top=1, h_ridge=0.7, h_slab=0.35, theta=60,
+                 tf_materal = 'LN_MgO_e',
+                 box_material = 'SiO2',
+                 clad_material = 'Air'):
         #validation
         etch = h_ridge - h_slab
         w_base = w_top + 2*etch/np.tan(theta*pi/180)
@@ -27,11 +31,24 @@ class waveguide:
         self.h_ridge = h_ridge
         self.h_slab = h_slab
         self.theta = theta
-
+        self.tf_material = tf_materal
+        self.box_material = box_material
+        self.clad_material = clad_material
+    
         #Attributes calculated
         self.etch = etch
         self.w_base = w_base
-
+        
+    def neff(self, wl, mode='TE'):
+        um = 1e-6
+        nridge = materials.refractive_index(self.tf_material, wl/um)
+        nbox = materials.refractive_index(self.box_material, wl/um)
+        nclad = materials.refractive_index(self.clad_material, wl/um)
+        w = (self.w_top + self.w_base)/2
+        h = self.h_ridge
+        hslab = self.h_slab
+        return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
+        
 def beta_f(kx, ky, n, k0):
     '''
     Propagation constant in the z-direction
@@ -137,7 +154,6 @@ def neff_asymmetric_slab(n0, n1, n2, d, wl, mode='TE', order=0):
     beta = beta_f(kx, 0, n1, k0)
     neff = beta/k0
     return neff
-
 
 def singlemode_symmetric(n0, n1, wl):
     #Returns thickness for single mode operation
