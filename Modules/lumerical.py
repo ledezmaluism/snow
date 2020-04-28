@@ -38,6 +38,7 @@ def draw_ridge(MODE, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
     Zmax = wg_length/2
     
     #Main ridge
+    MODE.switchtolayout()
     MODE.addrect()
     MODE.set("name",name)
     MODE.set("material", material_LN)
@@ -89,6 +90,7 @@ def draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate,
     Zmax = wg_length/2
     
     #Draw substrate
+    MODE.switchtolayout()
     MODE.addrect()
     MODE.set("name","Substrate")
     MODE.set("material", material_substrate)
@@ -115,8 +117,8 @@ def draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate,
 def draw_wg(MODE, material_LN, material_substrate, h_LN, h_substrate, h_etch, 
             w_ridge, w_slab, theta, wg_length, x0=0, delete=True):
     
+    MODE.switchtolayout()
     if delete:
-        MODE.switchtolayout()
         MODE.deleteall()
     draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate,
                    h_etch, w_slab, wg_length, x0=0)
@@ -138,6 +140,7 @@ def add_fine_mesh_lowlevel(MODE, finemesh, x0, y0, x_span, y_span):
     x_span = float(x_span)
     y_span = float(y_span)
     
+    MODE.switchtolayout()
     MODE.addmesh()
     MODE.set("x", x0)
     MODE.set("x span", x_span)
@@ -161,6 +164,7 @@ def add_1D_mode_solver(MODE, meshsize, h_LN, h_substrate, h_margin):
     Ymin = -h_substrate - h_margin
     Ymax = h_LN + h_margin
     
+    MODE.switchtolayout()
     MODE.addfde()
     MODE.set("solver type","1D Y:Z prop")
     MODE.set("z", 0)
@@ -188,6 +192,7 @@ def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
     Ymax = h_LN + h_margin
     
     # add 2D MODE solver (waveguide cross-section)
+    MODE.switchtolayout()
     MODE.addfde()  
     MODE.set("solver type", "2D Z normal")
     MODE.set("z", 0)
@@ -209,6 +214,7 @@ def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
     time.sleep(0.1)
 
 def solve_mode(MODE, wavelength, nmodes=20):
+    MODE.switchtolayout()
     MODE.set("wavelength", wavelength)
     MODE.set("number of trial modes", nmodes)
     n = int(MODE.findmodes())
@@ -222,6 +228,7 @@ def solve_mode(MODE, wavelength, nmodes=20):
     return neff, TE
 
 def dispersion_analysis(MODE, wavelength, mode_number):
+    # MODE.switchtolayout()
     MODE.selectMODE(mode_number)
     MODE.setanalysis("track selected mode",1)
     MODE.setanalysis("stop wavelength", wavelength)
@@ -358,7 +365,7 @@ class mode():
         x = self.E.xx
         y = self.E.yy
         N = 0.5*simps(simps(S.z, y), x)
-        return N
+        return np.real(N)
 
 class field_2D():
     '''
