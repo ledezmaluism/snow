@@ -395,6 +395,11 @@ class field_2D():
         yy = self.yy
         A = field_2D(xx, yy, Ax, Ay, Az)
         return A
+        
+    def rescale(self, factor):
+        self.x = self.x * factor
+        self.y = self.y * factor
+        self.z = self.z * factor
     
     def cross(self, E):
         Ax = self.x
