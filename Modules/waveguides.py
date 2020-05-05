@@ -48,6 +48,9 @@ class waveguide:
         h = self.h_ridge
         hslab = self.h_slab
         return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
+    
+    def GVD(self, wl):
+        pass
         
 def beta_f(kx, ky, n, k0):
     '''
