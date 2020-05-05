@@ -30,16 +30,23 @@ if 'mode' not in vars():
     mode = lumapi.MODE("Template_Luis.lms")
 
 '''
+Units
+'''
+um = 1e-6
+nm = 1e-9
+THz = 1e12
+
+'''
 Input parameters
 '''
-wavelength = 3
-h_LN = 1.2
-h_etch = 0.8
-w_ridge = 1.0
+wavelength = 1*um
+h_LN = 0.7*nm
+h_etch = 0.2*nm
+w_ridge = 1000*nm
 h_slab = h_LN - h_etch
 
 theta = 60
-wg_length = 10
+wg_length = 10*um
 w_ridge_base = w_ridge + 2*h_etch/np.tan(theta*pi/180)
 
 print('slab = ', h_slab)
