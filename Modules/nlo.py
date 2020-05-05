@@ -470,10 +470,11 @@ class pulse:
 
 class nonlinear_element():
     
-    def __init__(self, L, n_func, chi2):
+    def __init__(self, L, n_func, chi2, alpha=0):
         self.L = L
         self.n_func = n_func
-        self.chi2 = chi2        
+        self.chi2 = chi2
+        self.alpha = alpha
         
     def prepare(self, pulse, v_ref=None):
         
@@ -495,7 +496,7 @@ class nonlinear_element():
         f_ref = pulse.f0
         beta_ref = beta[0]
         self.beta_1_ref = 1/v_ref
-        self.D = beta - beta_ref - Omega/v_ref
+        self.D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
         
         self.Omega = Omega
         self.n = n
@@ -579,6 +580,18 @@ class nonlinear_element():
             f = -1j*ifft(chi_v2(z)*fft(f1))
             return f
         
+        #Method v22
+        def NEE_v22(z, A): #Waveguides...
+            phi = phi_1 - phi_2*z
+            
+            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
+            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
+            
+            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
+               
+            f = -1j*ifft(chi2(z)*fft(f1))
+            return f        
+        
         #Method v3
         def NEE_v3(z, A): #dispersive coupling
             phi = phi_1 - phi_2*z
@@ -598,6 +611,9 @@ class nonlinear_element():
         elif method=='v2':
             print('Using method = v2 (dispersive)')
             fnl = NEE_v2
+        elif method=='v22':
+            print('Using method = v22 (dispersive)')
+            fnl = NEE_v22
         elif method=='v3':
             print('Using method = v3 (full)')
             fnl = NEE_v3
