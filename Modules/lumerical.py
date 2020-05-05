@@ -220,25 +220,29 @@ def solve_mode(MODE, wavelength, nmodes=20):
     n = int(MODE.findmodes())
     
     neff = np.zeros(n) #effective  index matrix
+    ng = np.zeros(n) #group  index matrix
+    loss = np.zeros(n) #group  index matrix
     TE = np.zeros(n) #TE polarization fraction
     for k in range(n):    
         neff[k] = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k+1), "neff")))
+        ng[k] = np.float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'ng')))
+        loss[k] = np.float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'loss')))
         TE[k] = np.float(MODE.getdata("FDE::data::mode"+str(k+1), "TE polarization fraction"))
-
-    return neff, TE
+        
+    return neff, ng, loss, TE
 
 def dispersion_analysis(MODE, wavelength, mode_number):
     # MODE.switchtolayout()
-    MODE.selectMODE(mode_number)
+    MODE.selectmode(mode_number)
     MODE.setanalysis("track selected mode",1)
     MODE.setanalysis("stop wavelength", wavelength)
     MODE.setanalysis("detailed dispersion calculation",1)
     MODE.setanalysis("number of points", 1)
-    MODE.setanalysis("number of trial modes", 5)
+    MODE.setanalysis("number of trial modes", 20)
     MODE.frequencysweep()
-    vg = MODE.getdata("frequencysweep","vg")*1e3/1e15 #mm/fs
+    vg = MODE.getdata("frequencysweep","vg")
     D = MODE.getdata("frequencysweep","D")
-    GVD = -D*(wavelength)**2/(2*pi*c)*1e27 #"fs^2/mm"
+    GVD = -D*(wavelength)**2/(2*pi*c)
     return vg, GVD
 
 # def get_mode(MODE, k):         
