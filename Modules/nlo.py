@@ -506,7 +506,8 @@ class nonlinear_element():
         self.f_ref = f_ref
         self.beta_ref = beta_ref
         
-    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, method='v2', verbose=True):
+    def propagate_NEE(self, pulse, h, v_ref=None, Nup=4, 
+                      method='v2', verbose=True):
         tic_total = time.time()
         
         #Get the pulse info:
@@ -514,7 +515,6 @@ class nonlinear_element():
         A = pulse.a
         omega_ref = 2*pi*pulse.f0
         NFFT = t.size
-        dt = t[1] - t[0]
         
         self.prepare(pulse, v_ref)
         
@@ -547,26 +547,9 @@ class nonlinear_element():
         #Initialize the array that will store the full pulse evolution
         A_evol = 1j*np.zeros([t.size, Nsteps+1])
         A_evol[:,0] = A #Initial value
-        
-        #Nonlinear coefficient
-        def chi(z):
-            return omega_ref/(4*n[0]*c)*chi2(z)
              
         def chi_v2(z):
             return chi2(z)*(Omega+omega_ref)/(4*n*c) #Freq dependent
-        
-        #Method v1
-        def NEE_v1(z, A):
-            phi = phi_1 - phi_2*z
-            
-            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
-            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
-            
-            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
-            
-            f1_deriv = np.gradient(f1, dt)    
-            f = -1j*chi(z)*f1  - 1*(chi(z)/omega_ref)*f1_deriv
-            return f
         
         #Method v2
         def NEE_v2(z, A): #dispersive coupling
@@ -592,22 +575,9 @@ class nonlinear_element():
             f = -1j*ifft(chi2(z)*fft(f1))
             return f        
         
-        #Method v3
-        def NEE_v3(z, A): #dispersive coupling
-            phi = phi_1 - phi_2*z
-            
-            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
-            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
-            
-            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
-            f1_deriv = np.gradient(f1, dt)
-            
-            f = ifft(-1j*chi_v2(z)*fft(f1)  - 1*(chi_v2(z)/(Omega+omega_ref))*fft(f1_deriv))
-            return f
         
         if method=='v1':
             print('Using method = v1 (narrowband approx)')
-            fnl = NEE_v1
         elif method=='v2':
             print('Using method = v2 (dispersive)')
             fnl = NEE_v2
@@ -616,7 +586,6 @@ class nonlinear_element():
             fnl = NEE_v22
         elif method=='v3':
             print('Using method = v3 (full)')
-            fnl = NEE_v3
         else:
             print("Didn't understand method chosen. Using default v2")
             fnl = NEE_v2
