@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import time
 import scipy.signal
 from scipy.constants import pi, c
+import pyfftw
 
 
 def get_freq_domain(t, x):
@@ -505,7 +506,118 @@ class nonlinear_element():
         self.beta_2 = beta_2
         self.f_ref = f_ref
         self.beta_ref = beta_ref
+    
+    def propagate_NEE_fd_2(self, pulse, h, v_ref=None, method='bulk', 
+                         verbose=True):
+        tic_total = time.time()
         
+        #Initialize the FFTW arrays
+        t = pulse.t
+        NFFT = t.size
+        a = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        A = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        f = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        F = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        
+        fft_a = pyfftw.FFTW(a, A)
+        ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
+        fft_f = pyfftw.FFTW(f, F)
+
+        a[:] = pulse.a
+        A = fft_a()
+        omega_ref = 2*pi*pulse.f0
+
+        self.prepare(pulse, v_ref)
+        
+        #Unwrap the attributes for speed
+        L = self.L
+        D = self.D
+        chi2 = self.chi2
+        n = self.n
+        omega_ref = 2*pi*self.f_ref
+        Omega = self.Omega
+        
+        #Pre-compute some stuff:
+        phi_1 = omega_ref*t
+        phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
+        
+        #Calculate number of steps needed
+        Nsteps = int(L/h) + 1
+        
+        #Print out some info
+        print('Crystal length = %0.2f mm' %(L*1e3))
+        print('Step size = %0.2f um' %(h*1e6))
+        print('Number of steps = %i' %(Nsteps))
+            
+        #Let's inform the user after every 0.5mm (hard-coded)
+        zcheck_step = 0.5e-3
+        zcheck = zcheck_step
+        tic = time.time()
+        
+        #Initialize the array that will store the full pulse evolution
+        a_evol = 1j*np.zeros([t.size, Nsteps+1])
+        a_evol[:, 0] = a #Initial value
+             
+        def chi_bulk(z):
+            return chi2(z)*(Omega+omega_ref)/(4*n*c) 
+        
+        def chi_wg(z):
+            return chi2(z)
+        
+        if method=='bulk':
+            chi = chi_bulk
+        elif method=='waveguide':
+            chi = chi_wg
+        else:
+            print("Didn't understand method chosen. Using default bulk")
+            chi = chi_bulk
+
+        #Nonlinear function
+        def fnl(z, A):
+            phi = phi_1 - phi_2*z 
+            a = ifft_A()
+            f[:] = a*a*np.exp(1j*phi) + 2*a*np.conj(a)*np.exp(-1j*phi)
+            F = fft_f()
+            return -1j*chi(z)*F
+        
+        #Dispersion operator for step size h
+        Dh = np.exp(-1j*D*h)
+        
+        #Here we go, initialize z tracker and calculate first half dispersion step
+        z = 0
+        A[:] = np.exp(-1j*D*h/2)*A #Half step
+        for kz in range(Nsteps):     
+    
+            #Nonlinear step
+            #Runge-Kutta 4th order
+            k1 = fnl(z    , A       )
+            k2 = fnl(z+h/2, A+h*k1/2)
+            k3 = fnl(z+h/2, A+h*k2/2)
+            k4 = fnl(z+h  , A+h*k3  )
+            A[:] = A + (h/6)*(k1+2*k2+2*k3+k4) 
+            z = z + h
+            
+            #Linear full step (two half-steps back to back)
+            A[:] = Dh*A
+            
+            #Save evolution
+            a = ifft_A()
+            a_evol[:, kz+1] = a
+            
+            #Let's inform the user now
+            if verbose and round(z*1e3,3)==round(zcheck*1e3,3):
+                tdelta = time.time() - tic
+                print('Completed propagation along %0.1f mm (%0.1f s)' %(z*1e3, tdelta))
+                tic = time.time()
+                zcheck += zcheck_step
+    
+        A[:] = np.exp(1j*D*h/2)*A #Final half dispersion step back
+        a = ifft_A()
+        
+        tdelta = time.time() - tic_total
+        print('Total time = %0.1f s' %(tdelta))
+        return a, a_evol     
+    
     def propagate_NEE_fd(self, pulse, h, v_ref=None, method='bulk', 
                          verbose=True):
         tic_total = time.time()
@@ -605,126 +717,23 @@ class nonlinear_element():
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
-        return A, A_evol  
-    
-    def propagate_NEE_td(self, pulse, h, v_ref=None, Nup=4, 
-                      method='v2', verbose=True):
-        tic_total = time.time()
-        
-        #Get the pulse info:
-        t = pulse.t
-        A = pulse.a
-        omega_ref = 2*pi*pulse.f0
-        NFFT = t.size
-        
-        self.prepare(pulse, v_ref)
-        
-        #Unwrap the attributes for speed
-        L = self.L
-        D = self.D
-        chi2 = self.chi2
-        n = self.n
-        omega_ref = 2*pi*self.f_ref
-        Omega = self.Omega
-        
-        #Pre-compute some stuff:
-        tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
-        phi_1 = omega_ref*tup
-        phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
-        
-        #Calculate number of steps needed
-        Nsteps = int(L/h) + 1
-        
-        #Print out some info
-        print('Crystal length = %0.2f mm' %(L*1e3))
-        print('Step size = %0.2f um' %(h*1e6))
-        print('Number of steps = %i' %(Nsteps))
-            
-        #Let's inform the user after every 0.5mm (hard-coded)
-        zcheck_step = 0.5e-3
-        zcheck = zcheck_step
-        tic = time.time()
-        
-        #Initialize the array that will store the full pulse evolution
-        A_evol = 1j*np.zeros([t.size, Nsteps+1])
-        A_evol[:,0] = A #Initial value
-             
-        def chi_v2(z):
-            return chi2(z)*(Omega+omega_ref)/(4*n*c) #Freq dependent
-        
-        #Method v2
-        def NEE_v2(z, A): #dispersive coupling
-            phi = phi_1 - phi_2*z
-            
-            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
-            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
-            
-            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
-               
-            f = -1j*ifft(chi_v2(z)*fft(f1))
-            return f
-        
-        #Method v22
-        def NEE_v22(z, A): #Waveguides...
-            phi = phi_1 - phi_2*z
-            
-            Aup = scipy.signal.resample(A, Nup*NFFT) #upsampled signal     
-            f1up = Aup*Aup*np.exp(1j*phi) + 2*Aup*np.conj(Aup)*np.exp(-1j*phi)
-            
-            f1 = scipy.signal.resample(f1up, NFFT) #Downsample
-               
-            f = -1j*ifft(chi2(z)*fft(f1))
-            return f        
-        
-        if method=='v2':
-            print('Using method = v2 (dispersive)')
-            fnl = NEE_v2
-        elif method=='v22':
-            print('Using method = v22 (dispersive)')
-            fnl = NEE_v22
-        else:
-            print("Didn't understand method chosen. Using default v2")
-            fnl = NEE_v2
-        
-        #Dispersion operator for step size h
-        Dh = np.exp(-1j*D*h)
-        
-        #Here we go, initialize z tracker and calculate first half dispersion step
-        z = 0
-        A = ifft(np.exp(-1j*D*h/2)*fft(A)) #Half step
-        for kz in range(Nsteps):     
-    
-            #Nonlinear step
-            #Runge-Kutta 4th order
-            k1 = fnl(z    , A       )
-            k2 = fnl(z+h/2, A+h*k1/2)
-            k3 = fnl(z+h/2, A+h*k2/2)
-            k4 = fnl(z+h  , A+h*k3  )
-            A = A + (h/6)*(k1+2*k2+2*k3+k4) 
-            z = z + h
-            
-            #Linear full step (two half-steps back to back)
-            A = ifft(Dh*fft(A))
-            
-            #Save evolution
-            A_evol[:, kz+1] = A
-            
-            #Let's inform the user now
-            if verbose and round(z*1e3,3)==round(zcheck*1e3,3):
-                tdelta = time.time() - tic
-                print('Completed propagation along %0.1f mm (%0.1f s)' %(z*1e3, tdelta))
-                tic = time.time()
-                zcheck += zcheck_step
-    
-        A = ifft(np.exp(1j*D*h/2)*fft(A)) #Final half dispersion step back
-        
-        
-        tdelta = time.time() - tic_total
-        print('Total time = %0.1f s' %(tdelta))
-        return A, A_evol  
+        return A, A_evol   
 
 def test1():
-    pass
+    nm = 1e-9
+    um = 1e-6
+    mm = 1e-3
+    ps = 1e-12
+    fs = 1e-15
+    GHz = 1e9
+    THz = 1e1
+    NFFT = 2**12
+    f_min = -100*THz
+    f_max = 1e3*THz
+    BW = f_max - f_min
+    dt = 1/BW
+    t_start = -2.5*ps
+    t_stop = t_start + NFFT*dt
 
 if __name__ == '__main__':
     test1()
