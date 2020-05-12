@@ -8,10 +8,13 @@ Created on Fri Mar 27 14:52:34 2020
 import numpy as np
 import torch
 import time
-
-NFFT = 2**14
-N = 50000
-Tmax = 10000
+import pyfftw
+# pyfftw.interfaces.cache.enable()
+# pyfftw.interfaces.cache.set_keepalive_time(5)
+    
+NFFT = 2**12
+N = 9000
+# Tmax = 10000
 
 #Numpy
 y = np.random.normal(size=NFFT) + 1j*np.random.normal(size=NFFT)
@@ -24,42 +27,47 @@ elapsed = time.time() - tic
 print('Numpy time= ' + str(round(elapsed,5)) + ' seconds')
 
 
-#Pytorch CPU
-# x = torch.randn(NFFT)
-# X = torch.rfft(x, 1)
-
-# tic = time.time()
-# for k in torch.arange(N):
-#     x = torch.ifft(X, 1)
-#     X = torch.fft(x, 1)
-    
-# elapsed = time.time() - tic
-# print('Torch time= ' + str(round(elapsed,5)) + ' seconds')
-
-#Pytorch GPU
-# x = torch.randn(NFFT).cuda()
-# X = torch.rfft(x, 1)
+#Pytorch GPU from numpy
+# y = np.random.normal(size=NFFT) + 1j*np.random.normal(size=NFFT)
+# y2 = np.array([np.real(y), np.imag(y)]).transpose()
+# y = torch.tensor(y2).cuda()
 
 # tic = time.time()
 # for k in torch.arange(N).cuda():
-#     x = torch.ifft(X, 1)
-#     X = torch.fft(x, 1)
-    
+#     Y = torch.fft(y, 1)
+#     y = torch.ifft(Y, 1)
+
+
 # elapsed = time.time() - tic
 # print('Torch time= ' + str(round(elapsed,5)) + ' seconds')
 
+#FFTW
+# y = pyfftw.empty_aligned(NFFT, dtype='complex128', n=16)
+# y[:] = np.random.normal(size=NFFT) + 1j*np.random.normal(size=NFFT)
+
+# tic = time.time()
+# for k in np.arange(N):
+#     Y = pyfftw.interfaces.numpy_fft.fft(y)
+#     y = pyfftw.interfaces.numpy_fft.fft(Y)
+    
+# elapsed = time.time() - tic
+# print('FFTW time= ' + str(round(elapsed,5)) + ' seconds')
 
 
-#Pytorch GPU from numpy
-y = np.random.normal(size=NFFT) + 1j*np.random.normal(size=NFFT)
-y2 = np.array([np.real(y), np.imag(y)]).transpose()
-y = torch.tensor(y2).cuda()
+
+#FFTW pure
+y = pyfftw.empty_aligned(NFFT, dtype='complex128')
+Y = pyfftw.empty_aligned(NFFT, dtype='complex128')
+
+fft_y  = pyfftw.FFTW(y, Y)
+ifft_Y = pyfftw.FFTW(Y, y, direction='FFTW_BACKWARD')
+
+y[:] = np.random.normal(size=NFFT) + 1j*np.random.normal(size=NFFT)
 
 tic = time.time()
-for k in torch.arange(N).cuda():
-    Y = torch.fft(y, 1)
-    y = torch.ifft(Y, 1)
-
-
+for k in np.arange(N):
+    Y = fft_y()
+    y = ifft_Y()
+    
 elapsed = time.time() - tic
-print('Torch time= ' + str(round(elapsed,5)) + ' seconds')
+print('FFTW time= ' + str(round(elapsed,5)) + ' seconds')
