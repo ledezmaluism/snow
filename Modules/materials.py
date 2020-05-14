@@ -43,11 +43,15 @@ def refractive_index(material, wl):
     '''
     
     #Let's check for the right units
-    if 100e-9<wl<20e-6:
+    if isinstance(wl, (list, tuple, np.ndarray)):
+        wl_test = wl[0]
+    else:
+        wl_test = wl
+    if 100e-9<wl_test<20e-6:
         wl = wl*1e6 #units were probably meters
-    elif 100<wl<20000:
+    elif 100<wl_test<20000:
         wl = wl*1e-3 #Units were probably nm
-    elif 0.1<wl<20:
+    elif 0.1<wl_test<20:
         pass #Units were microns, do nothing
     else:
         print('Warning = Wavelength value seems out of range!')
@@ -106,3 +110,6 @@ def refractive_index(material, wl):
         print('wrong material...?')
 
     return n
+
+def extrapolate():
+    pass

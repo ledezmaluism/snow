@@ -23,7 +23,7 @@ mW = 1e-3
 def dB(num):
     return 10 * np.log10(np.abs(num)**2)
 
-Window  = 60   # simulation window (ps)
+Window  = 45   # simulation window (ps)
 Steps   = 100     # simulation steps
 Points  = 2**14  # simulation points
 
@@ -66,42 +66,44 @@ def get_betas(D, Dslope, wl):
 
 
 def runsim():
-    ## Fiber 1 settings (Normal)
-    Length  = 5   # length in m
-    beta2, beta3 = get_betas(D1*ps/nm/km, D1slope*ps/nm/nm/km, 1.55*um)
-    beta2 = beta2/(ps**2/km) # (ps^2/km)
-    beta3 = beta3/(ps**3/km) # (ps^3/km)
-    beta4 = 0
-    Alpha   = 0.9e-5     # attentuation coefficient (dB/cm)
-    Gamma   = 11.5    # Gamma (1/(W km))
-    fibWL   = pulseWL # Center WL of fiber (nm)
+    
     Raman   = True    # Enable Raman effect?
     Steep   = True    # Enable self steepening?
-    alpha = np.log((10**(Alpha * 0.1))) * 100  # convert from dB/cm to 1/m
-    # create the fiber
-    fiber1 = pynlo.media.fibers.fiber.FiberInstance()
-    fiber1.generate_fiber(Length, center_wl_nm=fibWL, betas=(beta2, beta3, beta4),
-                                  gamma_W_m=Gamma * 1e-3, gvd_units='ps^n/km', gain=-alpha)
+    
+    ## Fiber 1 settings (Normal)
+    # Length  = Len1   # length in m
+    # beta2, beta3 = get_betas(D1*ps/nm/km, D1slope*ps/nm/nm/km, 1.55*um)
+    # beta2 = beta2/(ps**2/km) # (ps^2/km)
+    # beta3 = beta3/(ps**3/km) # (ps^3/km)
+    # beta4 = 0
+    # Alpha   = 0.9e-5     # attentuation coefficient (dB/cm)
+    # Gamma   = 11.5    # Gamma (1/(W km))
+    # fibWL   = pulseWL # Center WL of fiber (nm)
+    # alpha = np.log((10**(Alpha * 0.1))) * 100  # convert from dB/cm to 1/m
+    # # create the fiber
+    # fiber1 = pynlo.media.fibers.fiber.FiberInstance()
+    # fiber1.generate_fiber(Length, center_wl_nm=fibWL, betas=(beta2, beta3, beta4),
+    #                               gamma_W_m=Gamma * 1e-3, gvd_units='ps^n/km', gain=-alpha)
     
     ## Fiber 2 settings (SMF)
-    Length  = 0.6   # length in m
-    beta2, beta3 = get_betas(D2*ps/nm/km, D2slope*ps/nm/nm/km, 1.55*um)
+    # Length  = 0.6   # length in m
+    # beta2, beta3 = get_betas(D2*ps/nm/km, D2slope*ps/nm/nm/km, 1.55*um)
     
-    beta2 = beta2/(ps**2/km) # (ps^2/km)
-    beta3 = beta3/(ps**3/km) # (ps^3/km)
-    beta4 = 0
-    Alpha   = 0.9e-5     # attentuation coefficient (dB/cm)
-    Gamma   = 10.5    # Gamma (1/(W km))
-    fibWL   = pulseWL # Center WL of fiber (nm)
-    alpha = np.log((10**(Alpha * 0.1))) * 100  # convert from dB/cm to 1/m
-    # create the fiber
-    fiber2 = pynlo.media.fibers.fiber.FiberInstance()
-    fiber2.generate_fiber(Length, center_wl_nm=fibWL, betas=(beta2, beta3, beta4),
-                                  gamma_W_m=Gamma * 1e-3, gvd_units='ps^n/km', gain=-alpha)
+    # beta2 = beta2/(ps**2/km) # (ps^2/km)
+    # beta3 = beta3/(ps**3/km) # (ps^3/km)
+    # beta4 = 0
+    # Alpha   = 0.9e-5     # attentuation coefficient (dB/cm)
+    # Gamma   = 10.5    # Gamma (1/(W km))
+    # fibWL   = pulseWL # Center WL of fiber (nm)
+    # alpha = np.log((10**(Alpha * 0.1))) * 100  # convert from dB/cm to 1/m
+    # # create the fiber
+    # fiber2 = pynlo.media.fibers.fiber.FiberInstance()
+    # fiber2.generate_fiber(Length, center_wl_nm=fibWL, betas=(beta2, beta3, beta4),
+    #                               gamma_W_m=Gamma * 1e-3, gvd_units='ps^n/km', gain=-alpha)
     
     
     # ## Fiber 3 settings (2m of anomalous dispersion HNLF)
-    Length  = 1   # length in m
+    Length  = Len3  # length in m
     beta2, beta3 = get_betas(D3*ps/nm/km, D3slope*ps/nm/nm/km, 1.55*um)
     beta2 = beta2/(ps**2/km) # (ps^2/km)
     beta3 = beta3/(ps**3/km) # (ps^3/km)
@@ -125,10 +127,11 @@ def runsim():
                      disable_Raman              = np.logical_not(Raman),
                      disable_self_steepening    = np.logical_not(Steep))
     
-    y, AW, AT, pulse_out1 = evol.propagate(pulse_in=pulse, fiber=fiber1, n_steps=Steps)
-    y, AW, AT, pulse_out2 = evol.propagate(pulse_in=pulse_out1, fiber=fiber2, n_steps=Steps)
-    y, AW, AT, pulse_out = evol.propagate(pulse_in=pulse_out2, fiber=fiber3, n_steps=Steps)
+    # y, AW, AT, pulse_out1 = evol.propagate(pulse_in=pulse, fiber=fiber1, n_steps=Steps)
+    # y, AW, AT, pulse_out2 = evol.propagate(pulse_in=pulse_out1, fiber=fiber2, n_steps=Steps)
+    # y, AW, AT, pulse_out = evol.propagate(pulse_in=pulse_out1, fiber=fiber3, n_steps=Steps)
     
+    y, AW, AT, pulse_out = evol.propagate(pulse_in=pulse, fiber=fiber3, n_steps=Steps)
     
     # ### That's it! Physics complete. Just plotting commands from here!
     
@@ -140,26 +143,46 @@ def runsim():
     ax.plot(pulse.wl_nm,    dB(pulse.AW),  color = 'b')
     ax.set_xlim([1100,2200])
     ax.set_ylim([-100,0])
-    s = ('D1 = %0.1f \nD2=%0.1f \nD3=%0.1f' %(D1,D2,D3))
+    # s = ('D1 = %0.1f \nD2=%0.1f \nD3=%0.1f' %(D1,D2,D3))
+    # s = ('D1 = %0.1f \nD3=%0.1f' %(D1,D3))
+    s = ('D3=%0.1f' %(D3))
     ax.annotate(s,(2000,-20))
 
 
-D1a = np.arange(0,-2.1, -0.5)
-D2a = np.arange(0, 25.1, 5)
-D3a = np.arange(0,3.1,0.5)
+# D1a = np.arange(0,-2.1, -0.5)
+# D2a = np.arange(0, 25.1, 5)
+# D3a = np.arange(0,3.1,0.5)
 
-for k1 in range(D1a.size):
-    for k2 in range(D2a.size):
-        for k3 in range(D3a.size):
-            D1 = D1a[k1]
-            D2 = D2a[k2]
-            D3 = D3a[k3]
+# D1a = np.arange(-1.5,-2.1, -0.1)
+# D2a = np.arange(1, 5.1, 4)
+# D3a = np.arange(1.2, 1.31, 0.1)
+
+# Len1 = 0.1
+Len3a = np.arange(1,5,0.5)
+# D1a = np.arange(-2,-2.1, -0.5)
+# D2a = np.arange(1, 1.1, 1)
+D3a = np.arange(0.5, 2.51, 0.5)
+
+for k2 in range(Len3a.size):
+    for k3 in range(D3a.size):
+        D3 = D3a[k3]
+        D3slope = 0.019
+        Len3 = Len3a[k2]
+        
+        runsim()
+
+# for k1 in range(D1a.size):
+#     for k2 in range(D2a.size):
+#         for k3 in range(D3a.size):
+#             # D1 = D1a[k1]
+#             # D2 = D2a[k2]
+#             D3 = D3a[k3]
             
-            D1slope = 0.019
-            D2slope = 0.045
-            D3slope = 0.019
+#             D1slope = 0.019
+#             # D2slope = 0.045
+#             D3slope = 0.019
             
-            runsim()
+#             runsim()
 
 # In[15]:
 
