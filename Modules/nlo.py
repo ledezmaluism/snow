@@ -540,6 +540,9 @@ class nonlinear_element():
         #Pre-compute some stuff:
         phi_1 = omega_ref*t
         phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
+        omega_abs = Omega+omega_ref
+        omega_abs[omega_abs<0] = 0 #Heaviside step
+        window = fftshift(scipy.signal.tukey(NFFT, alpha=0.5, sym=True))
         
         #Calculate number of steps needed
         Nsteps = int(L/h) + 1
@@ -559,7 +562,7 @@ class nonlinear_element():
         a_evol[:, 0] = a #Initial value
              
         def chi_bulk(z):
-            return chi2(z)*(Omega+omega_ref)/(4*n*c) 
+            return chi2(z)*omega_abs/(4*n*c) 
         
         def chi_wg(z):
             return chi2(z)
@@ -576,7 +579,8 @@ class nonlinear_element():
         def fnl(z, A):
             phi = phi_1 - phi_2*z 
             a = ifft_A()
-            f[:] = a*a*np.exp(1j*phi) + 2*a*np.conj(a)*np.exp(-1j*phi)
+            x = a*(np.cos(phi) + 1j*np.sin(phi))
+            f[:] = a*(x + 2*np.conj(x))
             F = fft_f()
             return -1j*chi(z)*F
         
@@ -626,6 +630,7 @@ class nonlinear_element():
         t = pulse.t
         A = fft(pulse.a)
         omega_ref = 2*pi*pulse.f0
+        NFFT = t.size
 
         self.prepare(pulse, v_ref)
         
@@ -640,6 +645,9 @@ class nonlinear_element():
         #Pre-compute some stuff:
         phi_1 = omega_ref*t
         phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
+        omega_abs = Omega+omega_ref
+        omega_abs[omega_abs<0] = 0 #Heaviside step
+        window = fftshift(scipy.signal.tukey(NFFT, alpha=0.5, sym=True))
         
         #Calculate number of steps needed
         Nsteps = int(L/h) + 1
@@ -659,7 +667,7 @@ class nonlinear_element():
         A_evol[:,0] = ifft(A) #Initial value
              
         def chi_bulk(z):
-            return chi2(z)*(Omega+omega_ref)/(4*n*c) 
+            return chi2(z)*omega_abs/(4*n*c) 
         
         def chi_wg(z):
             return chi2(z)
@@ -720,20 +728,7 @@ class nonlinear_element():
         return A, A_evol   
 
 def test1():
-    nm = 1e-9
-    um = 1e-6
-    mm = 1e-3
-    ps = 1e-12
-    fs = 1e-15
-    GHz = 1e9
-    THz = 1e1
-    NFFT = 2**12
-    f_min = -100*THz
-    f_max = 1e3*THz
-    BW = f_max - f_min
-    dt = 1/BW
-    t_start = -2.5*ps
-    t_stop = t_start + NFFT*dt
+    pass
 
 if __name__ == '__main__':
     test1()
