@@ -467,8 +467,7 @@ class pulse:
         f0 = self.f0
         ax = plot_ESD_dB_vs_wavelength(t, x, f0, label, ax, xlim, ylim, wl_unit=wl_unit)
         return ax
-
-
+    
 class nonlinear_element():
     
     def __init__(self, L, n_func, chi2, alpha=0):
@@ -507,29 +506,17 @@ class nonlinear_element():
         self.f_ref = f_ref
         self.beta_ref = beta_ref
     
-    def propagate_NEE_fd_2(self, pulse, h, v_ref=None, method='bulk', 
+    def propagate_NEE_fd(self, pulse, h, v_ref=None, method='bulk', 
                          verbose=True):
-        tic_total = time.time()
         
-        #Initialize the FFTW arrays
+        #Timer
+        tic_total = time.time()
+         
+        #Get stuff
         t = pulse.t
         NFFT = t.size
-        a = pyfftw.empty_aligned(NFFT, dtype='complex128')
-        A = pyfftw.empty_aligned(NFFT, dtype='complex128')
-        f = pyfftw.empty_aligned(NFFT, dtype='complex128')
-        F = pyfftw.empty_aligned(NFFT, dtype='complex128')
         
-        fft_a = pyfftw.FFTW(a, A)
-        ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
-        fft_f = pyfftw.FFTW(f, F)
-
-        a[:] = pulse.a
-        A = fft_a()
-        omega_ref = 2*pi*pulse.f0
-
         self.prepare(pulse, v_ref)
-        
-        #Unwrap the attributes for speed
         L = self.L
         D = self.D
         chi2 = self.chi2
@@ -537,12 +524,34 @@ class nonlinear_element():
         omega_ref = 2*pi*self.f_ref
         Omega = self.Omega
         
+        #Initialize the FFTW arrays
+        a = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        A = pyfftw.empty_aligned(NFFT, dtype='complex128')
+        aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+        Aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+        f1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+        F1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+        
+        fft_a = pyfftw.FFTW(a, A)
+        ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
+        fft_f1up = pyfftw.FFTW(f1up, F1up)
+        ifft_Aup = pyfftw.FFTW(Aup, aup, direction='FFTW_BACKWARD')
+
+        #Frequency domain input
+        a[:] = pulse.a
+        A = fft_a()
+
         #Pre-compute some stuff:
-        phi_1 = omega_ref*t
-        phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
-        omega_abs = Omega+omega_ref
-        omega_abs[omega_abs<0] = 0 #Heaviside step
-        window = fftshift(scipy.signal.tukey(NFFT, alpha=0.5, sym=True))
+        Dh = np.exp(-1j*D*h) #Dispersion operator for step size h
+        tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
+        phi_1 = omega_ref*tup
+        phi_2 = beta_ref - beta_1_ref*omega_ref
+        F1 = np.zeros_like(A)
+        
+        #Upsampling stuff
+        M = NFFT*Nup - A.size
+        Xc = np.zeros(M)
+        center = A.size // 2 + 1
         
         #Calculate number of steps needed
         Nsteps = int(L/h) + 1
@@ -569,27 +578,39 @@ class nonlinear_element():
         
         if method=='bulk':
             chi = chi_bulk
+            print("Using method = bulk")
         elif method=='waveguide':
             chi = chi_wg
+            print("Using method = waveguide")
         else:
             print("Didn't understand method chosen. Using default bulk")
             chi = chi_bulk
 
         #Nonlinear function
         def fnl(z, A):
-            phi = phi_1 - phi_2*z 
-            a = ifft_A()
-            x = a*(np.cos(phi) + 1j*np.sin(phi))
-            f[:] = a*(x + 2*np.conj(x))
-            F = fft_f()
-            return -1j*chi(z)*F
-        
-        #Dispersion operator for step size h
-        Dh = np.exp(-1j*D*h)
+            phi = phi_1 - phi_2*z
+            
+            #Upsample
+            Aup[:center] = A[:center]
+            Aup[center:center+M] = Xc
+            Aup[center+M:] = A[center:]
+            aup[:] = ifft_Aup() * Nup
+            
+            #Nonlinear stuff
+            xup = aup*(np.cos(phi) + 1j*np.sin(phi))
+            f1up[:] = aup*(xup + 2*np.conj(xup))
+    
+            #Downsample
+            F1up = fft_f1up()
+            F1[:center] = F1up[:center]
+            F1[center:] = F1up[center+M:]
+            F1[:] = F1 / Nup
+    
+            return -1j*chi(z)*F1 
         
         #Here we go, initialize z tracker and calculate first half dispersion step
         z = 0
-        A[:] = np.exp(-1j*D*h/2)*A #Half step
+        A[:] = A * np.exp(-1j*D*h/2) #Half step
         for kz in range(Nsteps):     
     
             #Nonlinear step
@@ -615,7 +636,7 @@ class nonlinear_element():
                 tic = time.time()
                 zcheck += zcheck_step
     
-        A[:] = np.exp(1j*D*h/2)*A #Final half dispersion step back
+        A[:] = A * np.exp(1j*D*h/2) #Final half dispersion step back
         a = ifft_A()
         
         tdelta = time.time() - tic_total
