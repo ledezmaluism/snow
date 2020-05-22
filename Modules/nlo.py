@@ -507,7 +507,7 @@ class nonlinear_element():
         self.beta_ref = beta_ref
     
     def propagate_NEE_fd(self, pulse, h, v_ref=None, method='bulk', 
-                         verbose=True):
+                         verbose=True, Nup=1):
         
         #Timer
         tic_total = time.time()
@@ -522,7 +522,7 @@ class nonlinear_element():
         chi2 = self.chi2
         n = self.n
         omega_ref = 2*pi*self.f_ref
-        Omega = self.Omega
+        omega_abs = omega_ref + self.Omega
         
         #Initialize the FFTW arrays
         a = pyfftw.empty_aligned(NFFT, dtype='complex128')
@@ -545,7 +545,7 @@ class nonlinear_element():
         Dh = np.exp(-1j*D*h) #Dispersion operator for step size h
         tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
         phi_1 = omega_ref*tup
-        phi_2 = beta_ref - beta_1_ref*omega_ref
+        phi_2 = self.beta_ref - self.beta_1_ref*omega_ref
         F1 = np.zeros_like(A)
         
         #Upsampling stuff
