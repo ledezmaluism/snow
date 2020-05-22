@@ -401,9 +401,13 @@ class field_2D():
         return A
         
     def rescale(self, factor):
-        self.x = self.x * factor
-        self.y = self.y * factor
-        self.z = self.z * factor
+        Ax = self.x * factor
+        Ay = self.y * factor
+        Az = self.z * factor
+        xx = self.xx
+        yy = self.yy
+        A = field_2D(xx, yy, Ax, Ay, Az)
+        return A
     
     def cross(self, E):
         Ax = self.x
@@ -421,14 +425,14 @@ class field_2D():
     def magsq(self):
         return abs(self.dot(self.conj()))
     
-    def overlap3(self, E2, E3, axis='xxx'):
-        x = self.xx
-        y = self.yy
+    # def overlap3(self, E2, E3, axis='xxx'):
+    #     x = self.xx
+    #     y = self.yy
         
-        if axis=='xxx':
-            integrand = self.x * E2.x * E3.x
+    #     if axis=='xxx':
+    #         integrand = self.x * E2.x * E3.x
         
-        return simps(simps(integrand, y), x)
+    #     return simps(simps(integrand, y), x)
 
 ###############################################################################
 ###############################################################################
