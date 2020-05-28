@@ -554,7 +554,7 @@ class nonlinear_element():
         center = A.size // 2 + 1
         
         #Calculate number of steps needed
-        Nsteps = int(L/h) + 1
+        Nsteps = int(L/h)
         
         #Print out some info
         print('Crystal length = %0.2f mm' %(L*1e3))
