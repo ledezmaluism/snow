@@ -6,7 +6,6 @@ Created on Mon Nov 19 09:12:11 2018
 """
 
 import numpy as np
-# import matplotlib.pyplot as plt
 from scipy.constants import c,pi,mu_0,epsilon_0
 
 ###############################################################################
