@@ -12,7 +12,7 @@ from scipy.optimize import brentq
 from scipy.constants import pi, c
 
 import materials
-import analysis
+import util
 
 class waveguide:
 
@@ -214,7 +214,7 @@ def neff_derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE
     def f(wl):
         return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
 
-    return analysis.derivative(f, wl, n, wl_step)
+    return util.derivative(f, wl, n, wl_step)
 
 
 def neff_2derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
@@ -238,7 +238,7 @@ def neff_2derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='T
     def f(wl):
         return neff_derivative(wl, nridge, nbox, nclad, w, h, hslab, mode)
 
-    return analysis.derivative(f, wl, n, wl_step)
+    return util.derivative(f, wl, n, wl_step)
 
 def ng():
     '''
