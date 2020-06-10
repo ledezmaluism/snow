@@ -98,6 +98,10 @@ def sech(t, Energy, tau, f0):
     x = np.sqrt(Ppeak) / np.cosh( 1.76 * t / tau )
     return x * np.exp(1j*2*pi*f0*t)
 
+def noise(t, Npower):
+    x = np.random.normal(size=t.size) + 1j*np.random.normal(size=t.size)
+    return np.sqrt(Npower) * x
+
 def average_g1(x, g1):
     Xesd = np.abs( fft(x) )**2
     return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
