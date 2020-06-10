@@ -176,7 +176,7 @@ def add_1D_mode_solver(MODE, meshsize, h_LN, h_substrate, h_margin):
     MODE.set("dy", meshsize);
 
 def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
-                       h_margin):
+                       h_margin, symmetry=None):
            
     meshsize = float(meshsize)
     h_LN = float(h_LN)
@@ -211,6 +211,15 @@ def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
     MODE.set("y max bc", "PML")
     MODE.set("mesh refinement", "conformal variant 0")
     
+    if symmetry == 'TE':
+        MODE.set("allow symmetry on all boundaries", True)
+        MODE.set("x max bc", "Anti-Symmetric")
+        MODE.set("x max", 0)
+    elif symmetry == 'TM':
+        MODE.set("allow symmetry on all boundaries", True)
+        MODE.set("x max bc", "Symmetric")
+        MODE.set("x max", 0)
+    
     time.sleep(0.1)
 
 def solve_mode(MODE, wavelength, nmodes=20):
@@ -244,78 +253,6 @@ def dispersion_analysis(MODE, wavelength, mode_number):
     D = MODE.getdata("frequencysweep","D")
     GVD = -D*(wavelength)**2/(2*pi*c)
     return vg, GVD
-
-# def get_mode(MODE, k):         
-#     #Get grid
-#     x = np.squeeze(MODE.getdata("FDE::data::mode"+str(k),"x"))
-#     y = np.squeeze(MODE.getdata("FDE::data::mode"+str(k),"y"))
-    
-#     #Get fields
-#     Ex = MODE.getdata("FDE::data::mode"+str(k),"Ex")
-#     Ey = MODE.getdata("FDE::data::mode"+str(k),"Ey")
-#     Ez = MODE.getdata("FDE::data::mode"+str(k),"Ez")
-#     Hx = MODE.getdata("FDE::data::mode"+str(k),"Hx")
-#     Hy = MODE.getdata("FDE::data::mode"+str(k),"Hy")
-#     Hz = MODE.getdata("FDE::data::mode"+str(k),"Hz")
-    
-#     #Get rid of singleton dimensions
-#     Ex = np.squeeze(Ex)
-#     Ey = np.squeeze(Ey)
-#     Ez = np.squeeze(Ez)
-#     Hx = np.squeeze(Hx)
-#     Hy = np.squeeze(Hy)
-#     Hz = np.squeeze(Hz)
-    
-#     neff = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k), "neff")))
-    
-#     return x, y, Ex, Ey, Ez, Hx, Hy, Hz, neff
-
-def plot_2D_mode(F, x, y, h_LN, h_substrate, h_etch, w_ridge, w_slab, theta,
-                 x_margin_view=1, y_margin_view=1, cmap=cm.jet):
-    
-    #Plot field in simulation coordinates
-    fig,ax = plt.subplots(1)  
-    Fabs = np.abs(F)
-    im = ax.imshow(np.transpose(Fabs), aspect='equal', 
-              interpolation='bicubic', cmap=cmap, origin='lower', 
-              extent=[x.min(), x.max(), y.min(), y.max()],
-              vmax=Fabs.max(), vmin=Fabs.min())
-    
-    #Show only interesting region
-    Xmin = (-w_slab/2 - x_margin_view)
-    Xmax = (w_slab/2 + x_margin_view)
-    Ymin = (-h_substrate - y_margin_view)
-    Ymax = (h_LN + y_margin_view)
-    ax.set_xlim(Xmin, Xmax)
-    ax.set_ylim(Ymin, Ymax)
-    
-    #ax.set_xlabel('x ($\mu m$)')
-    #ax.set_ylabel('y ($\mu m$)')
-    ax.set_yticks([])
-    ax.set_xticks([])
-
-    #Overlay waveguide
-    h_slab = (h_LN - h_etch)
-    h_substrate = h_substrate
-    h_LN = h_LN
-    w_slab = w_slab
-    w_ridge = w_ridge
-    w_sidewall = h_etch/np.tan(theta*pi/180)
-    
-#    substrate = patches.Rectangle((-w_slab/2,-h_substrate), w_slab, h_substrate,
-#                                  linewidth=1,edgecolor='w', facecolor='none')
-#    v_ridge = np.array([[-w_ridge/2-w_sidewall,h_slab], [-w_ridge/2,h_LN],
-#                        [w_ridge/2,h_LN], [w_ridge/2+w_sidewall,h_slab],
-#                        [w_slab/2,h_slab], [w_slab/2,0], 
-#                        [-w_slab/2,0], [-w_slab/2, h_slab] ] )
-#    ridge = patches.Polygon(v_ridge, linewidth=1, 
-#                            edgecolor='w', facecolor='none')
-    
-#    ax.add_patch(substrate)
-#    ax.add_patch(ridge)
-    
-    fig.colorbar(im)
-
 
 class mode():
     '''
@@ -425,14 +362,6 @@ class field_2D():
     def magsq(self):
         return abs(self.dot(self.conj()))
     
-    # def overlap3(self, E2, E3, axis='xxx'):
-    #     x = self.xx
-    #     y = self.yy
-        
-    #     if axis=='xxx':
-    #         integrand = self.x * E2.x * E3.x
-        
-    #     return simps(simps(integrand, y), x)
 
 ###############################################################################
 ###############################################################################
@@ -446,17 +375,27 @@ def _test_():
         MODE = lumapi.MODE("Template_Luis.lms")
     
     '''
-    Geometry
+    Units
     '''
-    wavelength = 1
-    h_LN = 0.7
-    h_etch = 0.3
-    w_ridge = 1.5
+    um = 1e-6
+    nm = 1e-9
+    
+    '''
+    Input parameters
+    '''
+    wavelength = 1*um
+    h_LN = 700*nm
+    h_etch = 250*nm
+    w_ridge = 1500*nm
     h_slab = h_LN - h_etch
+    
     theta = 60
-    wg_length = 10
+    wg_length = 10*um
     w_ridge_base = w_ridge + 2*h_etch/np.tan(theta*pi/180)
-
+    
+    print('slab = ', h_slab)
+    print('width at the base = %.3f um' %(w_ridge_base))
+    
     '''
     Simulation volume
     '''
@@ -464,13 +403,19 @@ def _test_():
     h_margin = 4*wavelength
     h_substrate = 4*wavelength
     meshsize = wavelength/20
-    finemesh = wavelength/80
+    finemesh = wavelength/40
     
     '''
     Materials
     '''
-    material_substrate = "SiO2_analytic"    
+    material_substrate = "SiO2_analytic"
+    # material_substrate = "Sapphire_analytic"
+    
+    # material_thinfilm = "LN_analytic_undoped_xne"
+    #material_thinfilm = "LN_analytic_undoped_zne"
     material_thinfilm = "LN_analytic_MgO_doped_xne"
+    #material_thinfilm = "LN_analytic_MgO_doped_zne"
+    #material_thinfilm = "LiNbO3 constant"
     
     '''
     Drawing and setup
@@ -478,9 +423,9 @@ def _test_():
     draw_wg(MODE, material_thinfilm, material_substrate,
                   h_LN, h_substrate, h_etch, w_ridge, w_slab, theta, wg_length)
     add_fine_mesh(MODE, finemesh, h_LN, w_ridge_base, x_factor=1.2, y_factor=1.5)
-    add_2D_MODE_solver(MODE, meshsize, h_LN, h_substrate, 
+    add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, 
                              w_slab, wg_length, h_margin)
-
+    
 if __name__ == '__main__':
     # _test_()
     pass
