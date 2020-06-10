@@ -10,6 +10,114 @@ import matplotlib.pyplot as plt
 import scipy.signal
 from scipy.constants import pi, c
 
+def coherence_g1(pulse_train):
+    '''
+    Calculates g1 coherence function for a train of pulses
+    It uses all possible pairs of pulses in the train
+
+    Parameters
+    ----------
+    pulse_train : ARRAY
+        ARRAY OF PULSES. THERE SHOULD BE A PULSE PER COLUMN. 
+        SO THE NUMBER OF COLUMNS WILL BE EQUAL TO THE NUMBER OF PULSES.
+        IT USES ALL N*(N-1)/2 PAIR OF PULSES AVAILABLE
+
+    Returns
+    -------
+    g : TYPE
+        THE COHERENCE FUNCTION IN THE FREQUENCY DOMAIN.
+
+    '''
+    E12 = 0
+    E11 = 0
+    E22 = 0
+    
+    Npulses = pulse_train.shape[1]
+    nn = 0 #Number of pairs
+
+    for k1 in range(Npulses - 1):
+        
+        E1 = fft(pulse_train[:, k1])
+        
+        for k2 in np.arange(k1+1, Npulses):
+            
+            E2 = fft(pulse_train[:, k2])
+    
+            E12 += np.conj(E1) * E2
+            E11 += np.conj(E1) * E1
+            E22 += np.conj(E2) * E2
+        
+            nn += 1
+    
+    g = np.abs(E12 / np.sqrt(E11 * E22) )   
+    print('Calculated coherence with %i pairs of pulses' %(nn) )
+    return g
+
+def gaussian(t, Energy, tau, f0):
+    '''
+    Parameters
+    ----------
+    t : ARRAY
+        TIME ARRAY.
+    Energy : FLOAT
+        PULSE ENERGY.
+    tau : FLOAT
+        PULSE WIDTH.
+    f0 : FLOAT
+        CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
+
+    Returns
+    -------
+    TYPE
+        AMPLITUDE ARRAY.
+
+    '''
+    Ppeak = 0.94*Energy/tau 
+    x = np.sqrt(Ppeak) * np.exp(-2*np.log(2)*(t/tau)**2)
+    return x * np.exp(1j*2*pi*f0*t)
+
+def sech(t, Energy, tau, f0):
+    '''
+    Parameters
+    ----------
+    t : ARRAY
+        TIME ARRAY.
+    Energy : FLOAT
+        PULSE ENERGY.
+    tau : FLOAT
+        PULSE WIDTH.
+    f0 : FLOAT
+        CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
+
+    Returns
+    -------
+    TYPE
+        AMPLITUDE ARRAY.
+    '''
+    Ppeak = 0.88*Energy/tau
+    x = np.sqrt(Ppeak) / np.cosh( 1.76 * t / tau )
+    return x * np.exp(1j*2*pi*f0*t)
+
+def average_g1(x, g1):
+    Xesd = np.abs( fft(x) )**2
+    return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
+
+def energy_td(t, x):
+    dt = t[1] - t[0]
+    pwr = abs(x)**2
+    energy = np.sum(pwr)*dt #Joules
+    return energy
+
+def energy_fd(t, x):
+    f, Xesd = get_esd(t, x)
+    df = f[1]-f[0]
+    energy = np.sum(Xesd)*df #Joules
+    return energy
+
+def pulse_center(t, x):
+    dt = t[1] - t[0]
+    I = abs(x)**2
+    return np.sum(t*I*dt)/np.sum(I*dt)
 
 def get_freq_domain(t, x):
     X = fft(x)
@@ -235,23 +343,6 @@ def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dBJ / Hz
     ax = __plot_vs_wavelength(wl, Xesd, ylabel=label, ax=ax, 
                               xlim=xlim, ylim=ylim, wl_unit=wl_unit)
     return ax
-        
-def energy_td(t, x):
-    dt = t[1] - t[0]
-    pwr = abs(x)**2
-    energy = np.sum(pwr)*dt #Joules
-    return energy
-
-def energy_fd(t, x):
-    f, Xesd = get_esd(t, x)
-    df = f[1]-f[0]
-    energy = np.sum(Xesd)*df #Joules
-    return energy
-
-def pulse_center(t, x):
-    dt = t[1] - t[0]
-    I = abs(x)**2
-    return np.sum(t*I*dt)/np.sum(I*dt)
 
 class pulse:
     def __init__(self, t, x, wavelength, domain='Time'):
