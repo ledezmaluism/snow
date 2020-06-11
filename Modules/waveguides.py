@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Aug 15 08:57:17 2019
-@author: luish
+@author: Luis Ledezma
 
 Module to calculate waveguide parameters semi-analytically
 (using mainly the effective index method)
