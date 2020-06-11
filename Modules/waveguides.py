@@ -8,11 +8,14 @@ Module to calculate waveguide parameters semi-analytically
 """
 
 import numpy as np
+import time
+from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 
 import materials
 import util
+import nlo
 
 class waveguide:
 
@@ -49,8 +52,95 @@ class waveguide:
         hslab = self.h_slab
         return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
     
+    def add_narray(self, wl_abs):
+        neff = np.zeros(wl_abs.shape)
+        for kw in range(wl_abs.size):
+            neff[kw] = self.neff(wl_abs[kw])
+        self.neff_array = neff
+        
+    def set_length(self, L):
+        self.L = L
+        
+    def set_loss(self, alpha):
+        self.alpha = alpha
+            
     def GVD(self, wl):
         pass
+    
+    def add_poling(self, poling):
+        '''
+        Adds poling function to waveguide. Poling is a function of z
+        '''
+        self.poling = poling
+        
+    def set_nonlinear_coeffs(self, N, X0):
+        self.N = N
+        self.X0 = X0
+        
+    def nonlinear_coupling(self, z):
+        return self.poling(z) * self.X0 / (4*self.N)
+    
+    def propagate_NEE(self, pulse, h, v_ref=None, 
+                         verbose=True, zcheck_step = 0.5e-3):
+        #Timer
+        tic_total = time.time()
+         
+        #Get pulse info
+        f0 = pulse.f0
+        f_abs = pulse.f_abs
+        Omega  = pulse.Omega
+        
+        beta = 2 * pi * f_abs * self.neff_array / c
+
+        if v_ref == None:
+            df = f_abs[1] - f_abs[0]
+            beta_1 = fftshift(np.gradient(fftshift(beta), 2*pi*df))
+            vg = 1/beta_1
+            v_ref = vg[0]
+        
+        beta_ref = beta[0]
+        beta_1_ref = 1/v_ref
+        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
+
+        omega_ref = 2*pi*f0
+        omega_abs = omega_ref + Omega
+        
+        def k(z):
+            p = self.poling(z)
+            return p * self.X0 * omega_abs / (4 * self.N)
+             
+        # def chi_bulk(z):  
+        #     return chi2(z)*omega_abs/(4*n*c) 
+        
+        # def chi_wg(z):
+        #     return chi2(z)
+        
+        # if method=='bulk':
+        #     k = chi_bulk
+        #     print("Using method = bulk")
+        # elif method=='waveguide':
+        #     k = chi_wg
+        #     print("Using method = waveguide")
+        # else:
+        #     print("Didn't understand method chosen. Using default bulk")
+        #     k = chi_bulk
+
+        [a, a_evol] = nlo.NEE(t = pulse.t, 
+                          x = pulse.a,
+                          Omega = Omega,
+                          f0 = pulse.f0,
+                          L = self.L,
+                          D = D, 
+                          b0 = beta_ref, 
+                          b1_ref = beta_1_ref, 
+                          k = k, 
+                          h = h, 
+                          zcheck_step = zcheck_step, 
+                          verbose = verbose)
+        
+        tdelta = time.time() - tic_total
+        print('Total time = %0.1f s' %(tdelta))
+        return a, a_evol 
         
 def beta_f(kx, ky, n, k0):
     '''
