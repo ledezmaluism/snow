@@ -16,6 +16,7 @@ from scipy.constants import pi, c
 import materials
 import util
 import nlo
+import pulses
 
 class waveguide:
 
@@ -57,6 +58,11 @@ class waveguide:
         for kw in range(wl_abs.size):
             neff[kw] = self.neff(wl_abs[kw])
         self.neff_array = neff
+        self.beta = 2 * pi * self.neff_array / wl_abs
+        
+        f_abs = c / wl_abs
+        df = f_abs[1] - f_abs[0]
+        self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
         
     def set_length(self, L):
         self.L = L
@@ -66,6 +72,16 @@ class waveguide:
             
     def GVD(self, wl):
         pass
+    
+    def propagate_linear(self, pulse):
+        t = pulse.t
+        x = pulse.a
+        wl_ref= pulse.wl0
+        
+        x = x * np.exp(-self.alpha*self.L) * np.exp(-1j * self.beta * self.L)
+        
+        output_pulse = pulses.pulse(t, x, wl_ref)
+        return output_pulse
     
     def add_poling(self, poling):
         '''
@@ -87,15 +103,13 @@ class waveguide:
          
         #Get pulse info
         f0 = pulse.f0
-        f_abs = pulse.f_abs
         Omega  = pulse.Omega
         
-        beta = 2 * pi * f_abs * self.neff_array / c
+        # beta = 2 * pi * f_abs * self.neff_array / c
+        beta = self.beta
 
         if v_ref == None:
-            df = f_abs[1] - f_abs[0]
-            beta_1 = fftshift(np.gradient(fftshift(beta), 2*pi*df))
-            vg = 1/beta_1
+            vg = 1/self.beta_1
             v_ref = vg[0]
         
         beta_ref = beta[0]
