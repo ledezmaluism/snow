@@ -398,6 +398,10 @@ class pulse:
             print('Warning: negative absolute frequencies found. ' + 
                   'Considering reducing the number of points, ' +  
                   'or increasing the total time')
+            
+    def __add__(self, pulse2):
+        xsum = self.a + pulse2.a
+        return pulse(self.t, xsum, self.wl0)
 
     def update_td(self, a):
         if np.size(self.t) == np.size(a):
