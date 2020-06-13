@@ -53,6 +53,10 @@ def coherence_g1(pulse_train):
     print('Calculated coherence with %i pairs of pulses' %(nn) )
     return g
 
+def average_g1(x, g1):
+    Xesd = np.abs( fft(x) )**2
+    return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
+
 def gaussian(t, Energy, tau, f0):
     '''
     Parameters
@@ -102,9 +106,16 @@ def noise(t, Npower):
     x = np.random.normal(size=t.size) + 1j*np.random.normal(size=t.size)
     return np.sqrt(Npower) * x
 
-def average_g1(x, g1):
-    Xesd = np.abs( fft(x) )**2
-    return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
+def filter_signal(f_abs, X, f0, bw):
+    #Input in is the frequency domain already
+    f_min = np.amin(f_abs)
+    f_max = np.amax(f_abs)
+    f1 = (f0 - bw/2 - f_min)/(f_max-f_min)
+    f2 = (f0 + bw/2 - f_min)/(f_max-f_min)
+    sos = scipy.signal.butter(15, [f1, f2], 'bandpass', output='sos')
+    _, h = scipy.signal.sosfreqz(sos, worN = X.size)
+    filtered = ifft( X * fftshift(h) )
+    return filtered, h
 
 def energy_td(t, x):
     dt = t[1] - t[0]
