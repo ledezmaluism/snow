@@ -19,7 +19,7 @@ import nlo
 
 class waveguide:
 
-    def __init__(self, w_top=1, h_ridge=0.7, h_slab=0.35, theta=60,
+    def __init__(self, w_top=1e-6, h_ridge=700e-9, h_slab=350e-9, theta=60,
                  tf_materal = 'LN_MgO_e',
                  box_material = 'SiO2',
                  clad_material = 'Air'):
