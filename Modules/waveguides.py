@@ -122,22 +122,6 @@ class waveguide:
         def k(z):
             p = self.poling(z)
             return p * self.X0 * omega_abs / (4 * self.N)
-             
-        # def chi_bulk(z):  
-        #     return chi2(z)*omega_abs/(4*n*c) 
-        
-        # def chi_wg(z):
-        #     return chi2(z)
-        
-        # if method=='bulk':
-        #     k = chi_bulk
-        #     print("Using method = bulk")
-        # elif method=='waveguide':
-        #     k = chi_wg
-        #     print("Using method = waveguide")
-        # else:
-        #     print("Didn't understand method chosen. Using default bulk")
-        #     k = chi_bulk
 
         [a, a_evol] = nlo.NEE(t = pulse.t, 
                           x = pulse.a,
@@ -154,7 +138,8 @@ class waveguide:
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
-        return a, a_evol 
+        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0)
+        return output_pulse, a_evol 
         
 def beta_f(kx, ky, n, k0):
     '''
