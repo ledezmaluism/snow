@@ -13,10 +13,16 @@ import imp
 import time
 
 from scipy.constants import pi, c
-lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2019b/api/python/lumapi.py")
-c = c*1e6/1e12 #um/ps (freq in THz)
 
-mode = lumapi.MODE("Template_Luis.lms")
+lumapi = imp.load_source("lumapi", "C:/Program Files/Lumerical/2020a/api/python/lumapi.py")
+MODE = lumapi.MODE("Template_Luis.lms")
+
+'''
+Units
+'''
+um = 1e-6
+nm = 1e-9
+THz = 1e12
 
 start_time = time.time()
 
