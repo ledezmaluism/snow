@@ -14,9 +14,11 @@ from scipy.constants import pi, c
 import materials
 import util
 
+um = 1e-6
+
 class waveguide:
 
-    def __init__(self, w_top=1, h_ridge=0.7, h_slab=0.35, theta=60,
+    def __init__(self, w_top=1*um, h_ridge=0.7*um, h_slab=0.35*um, theta=60, #CHANGE: multiplied by um
                  tf_materal = 'LN_MgO_e',
                  box_material = 'SiO2',
                  clad_material = 'Air'):
