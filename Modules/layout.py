@@ -14,11 +14,11 @@ import phidl.utilities as pu
 
 def setup_layers():
     ls = LayerSet() # Create a blank LayerSet
-    ls.add_layer(name = 'Waveguides', gds_layer = 1, gds_datatype = 0,  description = 'Ridge waveguide', color = 'Crimson', alpha = 0.7)
+    ls.add_layer(name = 'Waveguides', gds_layer = 1, gds_datatype = 0,  description = 'Ridge waveguide', color = 'crimson', alpha = 0.7)
     ls.add_layer(name = 'Metal_1', gds_layer = 10, gds_datatype = 0,  description = 'Metal before waveguide etching (poling, markers)', color = 'goldenrod', alpha = 0.7)
-    ls.add_layer(name = 'Marker Mask', gds_layer = 20, gds_datatype = 0,  description = 'Marker Protection', color = 'DodgerBlue', alpha = 0.4)
-    ls.add_layer(name = 'Topo Marker', gds_layer = 21, gds_datatype = 0,  description = 'Etched marker', color = 'LightSlateGray', alpha = 0.9)
-    ls.add_layer(name = 'Chip boundary', gds_layer = 99, gds_datatype = 0,  description = 'Chip boundary', color = 'DarkBlue', alpha = 0.1)
+    ls.add_layer(name = 'Marker Mask', gds_layer = 20, gds_datatype = 0,  description = 'Marker Protection', color = 'dodgerblue', alpha = 0.4)
+    ls.add_layer(name = 'Topo Marker', gds_layer = 21, gds_datatype = 0,  description = 'Etched marker', color = 'lightslategray', alpha = 0.9)
+    ls.add_layer(name = 'Chip boundary', gds_layer = 99, gds_datatype = 0,  description = 'Chip boundary', color = 'darkblue', alpha = 0.1)
     return ls
 
 def waveguide(width = 1, length = 10, layer = 1):
@@ -137,7 +137,9 @@ def resonator_half(radius = 100, width=1.0, length = 4000, layer=1):
 
 #OPO function
 def OPO(name='OPO', length=4000, radius=100, width=1.0, Lc=200, Cgap=1.0, 
-        Loc=50, Cogap=1.5, pp=5.0, dutycycle=0.4, pgap=25):
+        Loc=50, Cogap=1.5, pp=5.0, dutycycle=0.4, pgap=25,
+        Lout_signal = 2600, Lout_pump=2500, Lin_pump=2500,
+        radius_cpout = 100):
     
     OPO =  Device('OPO')
     
@@ -172,7 +174,17 @@ def OPO(name='OPO', length=4000, radius=100, width=1.0, Lc=200, Cgap=1.0,
     cpout = OPO.add_ref(waveguide(width, Loc))
     cpout.connect(port=2, destination=wg_res.ports[2])
     cpout.move([-Lc-Loc, Cogap + width])
-    r3 = OPO.add_ref(pg.arc(radius, width, theta=180, start_angle=90, layer=1))
-    r3.connect(port=1, destination=cpout.ports[1])
+    r3 = OPO.add_ref(pg.arc(radius_cpout, width, theta=180, start_angle=90, layer=1))
+    r3.connect(port=2, destination=cpout.ports[2])
+    
+    #Output waveguides
+    signal = OPO.add_ref(waveguide(width, Lout_signal))
+    signal.connect(port=1, destination=r3.ports[1])
+    
+    pump_out = OPO.add_ref(waveguide(width, Lout_pump))
+    pump_out.connect(port=1, destination=wg_main.ports[2])
+    
+    pump_in = OPO.add_ref(waveguide(width, Lin_pump))
+    pump_in.connect(port=2, destination=wg_main.ports[1])
     
     return OPO
