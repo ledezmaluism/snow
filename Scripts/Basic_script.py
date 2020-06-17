@@ -41,8 +41,8 @@ Input parameters
 '''
 wavelength = 1*um
 h_LN = 700*nm
-h_etch = 250*nm
-w_ridge = 1300*nm
+h_etch = 350*nm
+w_ridge = 1850*nm
 h_slab = h_LN - h_etch
 
 theta = 60

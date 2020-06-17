@@ -1,22 +1,26 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Aug 15 08:57:17 2019
-@author: luish
+@author: Luis Ledezma
 
 Module to calculate waveguide parameters semi-analytically
 (using mainly the effective index method)
 """
 
 import numpy as np
+import time
+from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 
 import materials
 import util
+import nlo
+import pulses
 
 class waveguide:
 
-    def __init__(self, w_top=1, h_ridge=0.7, h_slab=0.35, theta=60,
+    def __init__(self, w_top=1e-6, h_ridge=700e-9, h_slab=350e-9, theta=60,
                  tf_materal = 'LN_MgO_e',
                  box_material = 'SiO2',
                  clad_material = 'Air'):
@@ -49,8 +53,93 @@ class waveguide:
         hslab = self.h_slab
         return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
     
+    def add_narray(self, wl_abs):
+        neff = np.zeros(wl_abs.shape)
+        for kw in range(wl_abs.size):
+            neff[kw] = self.neff(wl_abs[kw])
+        self.neff_array = neff
+        self.beta = 2 * pi * self.neff_array / wl_abs
+        
+        f_abs = c / wl_abs
+        df = f_abs[1] - f_abs[0]
+        self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
+        
+    def set_length(self, L):
+        self.L = L
+        
+    def set_loss(self, alpha):
+        self.alpha = alpha
+            
     def GVD(self, wl):
         pass
+    
+    def propagate_linear(self, pulse):
+        t = pulse.t
+        x = pulse.a
+        wl_ref= pulse.wl0
+        
+        x = x * np.exp(-self.alpha*self.L) * np.exp(-1j * self.beta * self.L)
+        
+        output_pulse = pulses.pulse(t, x, wl_ref)
+        return output_pulse
+    
+    def add_poling(self, poling):
+        '''
+        Adds poling function to waveguide. Poling is a function of z
+        '''
+        self.poling = poling
+        
+    def set_nonlinear_coeffs(self, N, X0):
+        self.N = N
+        self.X0 = X0
+        
+    def nonlinear_coupling(self, z):
+        return self.poling(z) * self.X0 / (4*self.N)
+    
+    def propagate_NEE(self, pulse, h, v_ref=None, 
+                         verbose=True, zcheck_step = 0.5e-3):
+        #Timer
+        tic_total = time.time()
+         
+        #Get pulse info
+        f0 = pulse.f0
+        Omega  = pulse.Omega
+        
+        # beta = 2 * pi * f_abs * self.neff_array / c
+        beta = self.beta
+
+        if v_ref == None:
+            vg = 1/self.beta_1
+            v_ref = vg[0]
+        
+        beta_ref = beta[0]
+        beta_1_ref = 1/v_ref
+        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
+
+        omega_ref = 2*pi*f0
+        omega_abs = omega_ref + Omega
+        
+        def k(z):
+            p = self.poling(z)
+            return p * self.X0 * omega_abs / (4 * self.N)
+
+        [a, a_evol] = nlo.NEE(t = pulse.t, 
+                          x = pulse.a,
+                          Omega = Omega,
+                          f0 = pulse.f0,
+                          L = self.L,
+                          D = D, 
+                          b0 = beta_ref, 
+                          b1_ref = beta_1_ref, 
+                          k = k, 
+                          h = h, 
+                          zcheck_step = zcheck_step, 
+                          verbose = verbose)
+        
+        tdelta = time.time() - tic_total
+        print('Total time = %0.1f s' %(tdelta))
+        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0)
+        return output_pulse, a_evol 
         
 def beta_f(kx, ky, n, k0):
     '''
