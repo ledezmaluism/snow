@@ -69,7 +69,17 @@ class waveguide:
         
     def set_loss(self, alpha):
         self.alpha = alpha
-            
+    
+    def beta1(self, wl):
+        n = 2 #number of extrapolation levels
+        wl_step = 1e-9 #Initial step size
+        b1 = np.zeros_like(wl)
+        for kw in range(wl.size):
+            dndl = util.derivative(self.neff, wl[kw], n, wl_step)
+            neff = self.neff(wl[kw])
+            b1[kw] = (neff - wl[kw] * dndl)/c
+        return b1
+    
     def GVD(self, wl):
         pass
     
