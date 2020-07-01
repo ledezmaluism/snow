@@ -64,7 +64,7 @@ class waveguide:
         df = f_abs[1] - f_abs[0]
         self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
         
-    def behavioral(self, wl, z_wl, wl_1, wl_2, GVM=0, n_ff=2.0, wl_ff=None):
+    def behavioral(self, wl, z_wl, wl_1, wl_2, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
         '''
         This method is equivalent to "add_narray", but instead of using 
         the physical waveguide parameters to calculate the behavior of the 
@@ -92,14 +92,14 @@ class waveguide:
         Waveguide object.
 
         '''
-        if wl_ff == None:
-            wl_ff = ( wl_1 + wl_2 )/2
+        if wl_f0 == None:
+            wl_f0 = ( wl_1 + wl_2 )/2
         
         #z1, w1, w2 are wavelengths
         z1 = 2*pi*c/z_wl
         omega_1 = 2*pi*c/wl_1
         omega_2 = 2*pi*c/wl_2        
-        omega0_ff = 2*pi*c/wl_ff
+        omega0_f0 = 2*pi*c/wl_f0
         
         #Frequency array:
         omega = 2*pi*c/wl
@@ -112,13 +112,17 @@ class waveguide:
         z2_den = 3*c1*(2*z1-omega_2-omega_1)*(omega_2-omega_1)
         z2 = z2_num/z2_den
         
-        c2 = n_ff/c - c1*(omega0_ff**3/12 - (z1+z2)*(omega0_ff**2)/6 +z1*z2*omega0_ff/2)
+        
+        c3 = (omega_2**3-omega_1**3)/12 - (z1+z2)*(omega_2**2-omega_1**2)/6 + z1*z2*(omega_2-omega_1)/2
+        c3 = delta_n/c - c1*c3 
+        c3 = c3 / (1/omega_2 - 1/omega_1)
+        c2 = n_f0/c - c1*(omega0_f0**3/12 - (z1+z2)*(omega0_f0**2)/6 +z1*z2*omega0_f0/2) - c3/omega0_f0
         
         # Now we can solve for the remaing parameters
-        beta_2 = c1*(omega**2 -(z1+z2)*omega + z1*z2)
+        # beta_2 = c1*(omega**2 -(z1+z2)*omega + z1*z2)
         beta_1 = c1*(omega**3/3 - (z1+z2)*(omega**2)/2 + z1*z2*omega) + c2
-        beta = c1*(omega**4/12 - (z1+z2)*(omega**3)/6 + z1*z2*(omega**2)/2) + c2*omega  
-        n = c*( c1*(omega**3/12 - (z1+z2)*(omega**2)/6 + z1*z2*omega/2) + c2 )
+        beta = c1*(omega**4/12 - (z1+z2)*(omega**3)/6 + z1*z2*(omega**2)/2) + c2*omega + c3
+        n = c*( c1*(omega**3/12 - (z1+z2)*(omega**2)/6 + z1*z2*omega/2) + c2 + c3/omega)
         
         self.beta = beta
         self.beta_1 = beta_1
