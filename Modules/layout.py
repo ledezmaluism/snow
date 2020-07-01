@@ -47,8 +47,8 @@ def waveguide(width = 1, length = 10, layer = 1):
 def global_markers(layer_marker=10, layer_mask=20):
     D = Device('Global Markers')
     R = pg.rectangle(size=(20,20), layer=layer_marker)
-    a = D.add_array(R, columns = 3, rows = 3,  spacing = (100, 100))
-    a.move([-110, -110]) #Center of the array
+    a = D.add_array(R, columns = 6, rows = 6,  spacing = (100, 100))
+    a.move([-260, -260]) #Center of the array
     
     #Add marker cover
     cover = pg.bbox(bbox = a.bbox, layer=layer_mask)

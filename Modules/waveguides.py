@@ -65,12 +65,86 @@ class waveguide:
         df = f_abs[1] - f_abs[0]
         self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
         
+    def behavioral(self, wl, z_wl, wl_1, wl_2, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
+        '''
+        This method is equivalent to "add_narray", but instead of using 
+        the physical waveguide parameters to calculate the behavior of the 
+        waveguide, it defines the behavior directly 
+        (so it defines a black box model of the waveguide)
+        Parameters
+        ----------
+        wl : TYPE
+            Wavelength array
+        z_wl : TYPE
+            Zero GVD wavelength
+        wl_1 : TYPE
+            First wavelegnth for GVM calculation
+        wl_2 : TYPE
+            Second wavelegnth for GVM calculation
+        GVM : TYPE, optional
+            GVM between wl_1 and wl_2. The default is 0.
+        n_ff : TYPE, optional
+            Refractive index at wl_ff. The default is 2.0.
+        wl_ff : TYPE, optional
+            Fundamental frequency for refractive index. The default is None.
+
+        Returns
+        -------
+        Waveguide object.
+
+        '''
+        if wl_f0 == None:
+            wl_f0 = ( wl_1 + wl_2 )/2
+        
+        #z1, w1, w2 are wavelengths
+        z1 = 2*pi*c/z_wl
+        omega_1 = 2*pi*c/wl_1
+        omega_2 = 2*pi*c/wl_2        
+        omega0_f0 = 2*pi*c/wl_f0
+        
+        #Frequency array:
+        omega = 2*pi*c/wl
+        
+        #Constants
+        c1 = 10 **(-55) #s^4/m
+        
+        # First we want to determine the remianing free parameters
+        z2_num = 6*GVM - 2*c1*(omega_2**3-omega_1**3)+3*c1*z1*(omega_2**2-omega_1**2)
+        z2_den = 3*c1*(2*z1-omega_2-omega_1)*(omega_2-omega_1)
+        z2 = z2_num/z2_den
+        
+        
+        c3 = (omega_2**3-omega_1**3)/12 - (z1+z2)*(omega_2**2-omega_1**2)/6 + z1*z2*(omega_2-omega_1)/2
+        c3 = delta_n/c - c1*c3 
+        c3 = c3 / (1/omega_2 - 1/omega_1)
+        c2 = n_f0/c - c1*(omega0_f0**3/12 - (z1+z2)*(omega0_f0**2)/6 +z1*z2*omega0_f0/2) - c3/omega0_f0
+        
+        # Now we can solve for the remaing parameters
+        # beta_2 = c1*(omega**2 -(z1+z2)*omega + z1*z2)
+        beta_1 = c1*(omega**3/3 - (z1+z2)*(omega**2)/2 + z1*z2*omega) + c2
+        beta = c1*(omega**4/12 - (z1+z2)*(omega**3)/6 + z1*z2*(omega**2)/2) + c2*omega + c3
+        n = c*( c1*(omega**3/12 - (z1+z2)*(omega**2)/6 + z1*z2*omega/2) + c2 + c3/omega)
+        
+        self.beta = beta
+        self.beta_1 = beta_1
+        self.neff_array = n
+        
     def set_length(self, L):
         self.L = L
         
     def set_loss(self, alpha):
         self.alpha = alpha
-            
+    
+    def beta1(self, wl):
+        n = 2 #number of extrapolation levels
+        wl_step = 1e-9 #Initial step size
+        b1 = np.zeros_like(wl)
+        for kw in range(wl.size):
+            dndl = util.derivative(self.neff, wl[kw], n, wl_step)
+            neff = self.neff(wl[kw])
+            b1[kw] = (neff - wl[kw] * dndl)/c
+        return b1
+    
     def GVD(self, wl):
         pass
     
