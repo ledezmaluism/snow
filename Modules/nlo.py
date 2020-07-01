@@ -9,8 +9,9 @@ from numpy.fft import fftshift
 import time
 from scipy.constants import pi, c
 import pyfftw
+import pulses
 
-class nonlinear_element():
+class nonlinear_crystal():
     
     def __init__(self, L, n_func, chi2, alpha=0):
         self.L = L
@@ -18,7 +19,7 @@ class nonlinear_element():
         self.chi2 = chi2
         self.alpha = alpha      
   
-    def propagate_NEE_fd(self, pulse, h, v_ref=None, method='waveguide', 
+    def propagate_NEE_fd(self, pulse, h, v_ref=None,
                          verbose=True, zcheck_step = 0.5e-3):
         
         #Timer
@@ -47,21 +48,8 @@ class nonlinear_element():
         omega_ref = 2*pi*f0
         omega_abs = omega_ref + Omega
              
-        def chi_bulk(z):  
-            return chi2(z)*omega_abs/(4*n*c) 
-        
-        def chi_wg(z):
-            return chi2(z)
-        
-        if method=='bulk':
-            k = chi_bulk
-            print("Using method = bulk")
-        elif method=='waveguide':
-            k = chi_wg
-            print("Using method = waveguide")
-        else:
-            print("Didn't understand method chosen. Using default bulk")
-            k = chi_bulk
+        def k(z):  
+            return chi2(z)*omega_abs/(4*n*c)
 
         [a, a_evol] = NEE(t = pulse.t, 
                           x = pulse.a,
@@ -78,7 +66,9 @@ class nonlinear_element():
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
-        return a, a_evol     
+        
+        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0)
+        return output_pulse, a_evol  
 
 
 def NEE(t, x, Omega, f0,
