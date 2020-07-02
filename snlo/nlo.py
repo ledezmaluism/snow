@@ -14,11 +14,41 @@ from . import pulses
 
 class nonlinear_crystal():
     
-    def __init__(self, L, n_func, chi2, alpha=0):
+    def __init__(self, L, n_func, chi2, alpha=0,
+                 chi3=0, chiRp=1, HR=None):
+        '''
+
+        Parameters
+        ----------
+        L : SCALAR
+            Crystal length
+        n_func : FUNCTION
+            Funtion that returns refractive index as a function of wavelength
+        chi2 : FUNCTION
+            Returns chi2 as a function of length (for poling purposes)
+        alpha : SCALAR, optional
+            Power loss coefficient in units of 1/m. The default is 0.
+        chi3 : SCALAR, optional
+            Instantaneous chi3. The default is 0.
+        chiRp : SCALAR, optional
+            Peak Raman susceptibility. The default is 1.
+        HR : FUNCTION, optional
+            Raman transfer function. The default is None.
+
+        Returns
+        -------
+        Crystal object.
+
+        '''
         self.L = L
         self.n_func = n_func
         self.chi2 = chi2
-        self.alpha = alpha      
+        self.alpha = alpha     
+        
+        if chi3 != 0:
+            self.chi3 = chi3
+            self.chiRp = chiRp
+            self.HR = HR
   
     def propagate_NEE_fd(self, pulse, h, v_ref=None,
                          verbose=True, zcheck_step = 0.5e-3):
@@ -199,9 +229,5 @@ def NEE(t, x, Omega, f0,
     
     return a, a_evol 
 
-def test1():
-    pass
-
 if __name__ == '__main__':
-    test1()
-    
+    pass
