@@ -9,7 +9,8 @@ from numpy.fft import fftshift
 import time
 from scipy.constants import pi, c
 import pyfftw
-import pulses
+
+from . import pulses
 
 class nonlinear_crystal():
     

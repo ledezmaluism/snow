@@ -13,10 +13,10 @@ from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 
-import materials
-import util
-import nlo
-import pulses
+from . import materials
+from . import util
+from . import nlo
+from . import pulses
 
 class waveguide:
 
