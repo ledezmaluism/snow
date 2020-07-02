@@ -32,7 +32,7 @@ def refractive_index(material, wl):
     Parameters
     ----------
     material : STRING
-        'SiO2', 'Sapphire', 'LN_MgO_o', 'LN_MgO_e', 'LN_o', 'LN_e'
+        'SiO2', 'Sapphire', 'LN_MgO_o', 'LN_MgO_e', 'LN_o', 'LN_e', 'GaP'
     wl : SCALAR
         Wavelength
 
@@ -84,6 +84,10 @@ def refractive_index(material, wl):
     elif material=='LN_e':
         A = np.array([2.9804, 0.5981, 8.9543])
         B = np.array([0.02047, 0.0666, 416.08])
+        n = sellmeier(A, B, wl)
+    elif material=='GaP':
+        A = np.array([1.39, 4.131, 2.57, 2.056])
+        B = np.array([0.172**2, 0.234**2, 0.345**2, 27.5**2])
         n = sellmeier(A, B, wl)
     elif material=='LT_MgO_e':
         #This one uses a different form of Sellmeier equation...
