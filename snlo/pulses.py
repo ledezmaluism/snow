@@ -57,7 +57,7 @@ def average_g1(x, g1):
     Xesd = np.abs( fft(x) )**2
     return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
 
-def gaussian(t, Energy, tau, f0):
+def gaussian(t, Energy, FWHM, f0=0):
     '''
     Parameters
     ----------
@@ -65,7 +65,7 @@ def gaussian(t, Energy, tau, f0):
         TIME ARRAY.
     Energy : FLOAT
         PULSE ENERGY.
-    tau : FLOAT
+    FWHM : FLOAT
         PULSE WIDTH.
     f0 : FLOAT
         CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
@@ -76,11 +76,11 @@ def gaussian(t, Energy, tau, f0):
         AMPLITUDE ARRAY.
 
     '''
-    Ppeak = 0.94*Energy/tau 
-    x = np.sqrt(Ppeak) * np.exp(-2*np.log(2)*(t/tau)**2)
+    Ppeak = 0.94*Energy/FWHM
+    x = np.sqrt(Ppeak) * np.exp(-2*np.log(2)*(t/FWHM)**2)
     return x * np.exp(1j*2*pi*f0*t)
 
-def sech(t, Energy, tau, f0):
+def sech(t, Energy, FWHM, f0=0):
     '''
     Parameters
     ----------
@@ -88,7 +88,7 @@ def sech(t, Energy, tau, f0):
         TIME ARRAY.
     Energy : FLOAT
         PULSE ENERGY.
-    tau : FLOAT
+    FWHM : FLOAT
         PULSE WIDTH.
     f0 : FLOAT
         CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
@@ -98,13 +98,50 @@ def sech(t, Energy, tau, f0):
     TYPE
         AMPLITUDE ARRAY.
     '''
-    Ppeak = 0.88*Energy/tau
-    x = np.sqrt(Ppeak) / np.cosh( 1.76 * t / tau )
+    Ppeak = 0.88*Energy/FWHM
+    x = np.sqrt(Ppeak) / np.cosh( 1.76 * t / FWHM )
     return x * np.exp(1j*2*pi*f0*t)
 
 def noise(t, Npower):
-    x = np.random.normal(size=t.size) + 1j*np.random.normal(size=t.size)
-    return np.sqrt(Npower) * x
+    sigma = np.sqrt(Npower) / np.sqrt(2)
+    x = np.random.normal(scale = sigma, size = t.size) + 1j*np.random.normal(scale = sigma, size = t.size)
+    return x
+
+def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100):
+    '''
+    Generates a gaussian pulse with noise with a given Energy or peak power
+    '''
+    
+    if Energy != None:
+        pass
+    elif Ppeak != None:
+        Energy = Ppeak * FWHM / 0.94
+    else:
+        print('Warning: Using default 1pJ of energy for the pulse')
+        Energy = 1e-12
+        
+    x = gaussian(t, Energy, FWHM, f0)
+    Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
+    n = noise(t, Npwr)
+    return pulse(t, x+n, c/f_ref, domain='Time')
+
+def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100):
+    '''
+    Generates a sech pulse with noise with a given Energy or peak power
+    '''
+    
+    if Energy != None:
+        pass
+    elif Ppeak != None:
+        Energy = Ppeak * FWHM / 0.88
+    else:
+        print('Warning: Using default 1pJ of energy for the pulse')
+        Energy = 1e-12
+        
+    x = sech(t, Energy, FWHM, f0-f_ref)
+    Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
+    n = noise(t, Npwr)
+    return pulse(t, x+n, c/f_ref, domain='Time')
 
 def filter_signal(f_abs, X, f0, bw):
     #Input in is the frequency domain already
