@@ -139,7 +139,7 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100):
         Energy = 1e-12
         
     x = sech(t, Energy, FWHM, f0-f_ref)
-    Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
+    Npwr = np.amax(np.abs(x)**2) * 10**(Npwr_dB/10 )
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, domain='Time')
 
