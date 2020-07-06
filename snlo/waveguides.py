@@ -44,6 +44,9 @@ class waveguide:
         self.etch = etch
         self.w_base = w_base
         
+        #Chi3 place holder
+        self.chi3 = None
+        
     def neff(self, wl, mode='TE'):
         um = 1e-6
         nridge = materials.refractive_index(self.tf_material, wl/um)
@@ -167,6 +170,11 @@ class waveguide:
     def set_nonlinear_coeffs(self, N, X0):
         self.N = N
         self.X0 = X0
+        
+    def set_chi3(self, chi3, chi3_Rp, HR):
+        self.chi3 = chi3
+        self.chi3_Rp = chi3_Rp
+        self.HR = HR
         
     def nonlinear_coupling(self, z):
         return self.poling(z) * self.X0 / (4*self.N)

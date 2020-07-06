@@ -103,7 +103,8 @@ class nonlinear_crystal():
 
 
 def NEE(t, x, Omega, f0,
-        L, D, b0, b1_ref, k, 
+        L, D, b0, b1_ref, k,
+        X3, X3R, HR, 
         h, zcheck_step, verbose=True):
 
     #Get stuff
@@ -167,27 +168,41 @@ def NEE(t, x, Omega, f0,
     a_evol[:, 0] = a #Initial value
     
     #Nonlinear function
-    def fnl(z, A):
-        phi = phi_1 - phi_2*z
-        
-        #Upsample
-        Aup[:center] = A[:center]
-        Aup[center:center+M] = Xc
-        Aup[center+M:] = A[center:]
-        aup[:] = ifft_Aup() * Nup
-        
-        #Nonlinear stuff
-        xup = aup*(np.cos(phi) + 1j*np.sin(phi))
-        f1up[:] = aup*(xup + 2*np.conj(xup))
-
-        #Downsample
-        F1up = fft_f1up()
-        F1[:center] = F1up[:center]
-        F1[center:] = F1up[center+M:]
-        F1[:] = F1 / Nup
-
-        return -1j * k(z) * F1 
+    #Let's have one for the case wehere there's only chi2
+    def fnl_chi2(z, A):
+            phi = phi_1 - phi_2*z
+            
+            #Upsample
+            Aup[:center] = A[:center]
+            Aup[center:center+M] = Xc
+            Aup[center+M:] = A[center:]
+            aup[:] = ifft_Aup() * Nup
+            
+            #Nonlinear stuff
+            xup = aup*(np.cos(phi) + 1j*np.sin(phi))
+            f1up[:] = aup*(xup + 2*np.conj(xup))
     
+            #Downsample
+            F1up = fft_f1up()
+            F1[:center] = F1up[:center]
+            F1[center:] = F1up[center+M:]
+            F1[:] = F1 / Nup
+    
+            return -1j * k(z) * F1 
+        
+    def fnl_chi3(z, A):
+        #TODO: Need to take FFT
+        #What happens with 3rd harmonic?
+        f2 = fnl_chi2(z, A)
+        fe = X3 * a * a * np.conj(a)
+        fr = 0
+        return f2  -1j *( fe + fr )
+        
+    if X3 != None:
+        fnl = fnl_chi2
+    else:
+        fnl = fnl_chi3
+       
     #Here we go, initialize z tracker and calculate first half dispersion step
     z = 0
     A[:] = A * np.exp(-1j*D*h/2) #Half step
