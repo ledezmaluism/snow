@@ -143,15 +143,25 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100):
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, domain='Time')
 
-def filter_signal(f_abs, X, f0, bw):
+def filter_signal(f_abs, X, f0, bw, type='ideal'):
     #Input in is the frequency domain already
-    f_min = np.amin(f_abs)
-    f_max = np.amax(f_abs)
-    f1 = (f0 - bw/2 - f_min)/(f_max-f_min)
-    f2 = (f0 + bw/2 - f_min)/(f_max-f_min)
-    sos = scipy.signal.butter(15, [f1, f2], 'bandpass', output='sos')
-    _, h = scipy.signal.sosfreqz(sos, worN = X.size)
-    filtered = ifft( X * fftshift(h) )
+    
+    if type == 'ideal':
+        f1 = f0 - bw/2
+        f2 = f0 + bw/2
+        h = np.ones_like(f_abs)
+        h[ f_abs < f1 ] = 0
+        h[ f_abs > f2 ] = 0
+    elif type == 'butterworth':
+        f_min = np.amin(f_abs)
+        f_max = np.amax(f_abs)
+        f1 = (f0 - bw/2 - f_min)/(f_max-f_min)
+        f2 = (f0 + bw/2 - f_min)/(f_max-f_min)
+        sos = scipy.signal.butter(15, [f1, f2], 'bandpass', output='sos')
+        _, h = scipy.signal.sosfreqz(sos, worN = X.size)
+        h = fftshift(h)
+    
+    filtered = ifft( X * h )             
     return filtered, h
 
 def energy_td(t, x):
