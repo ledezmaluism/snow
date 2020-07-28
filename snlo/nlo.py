@@ -74,7 +74,7 @@ class nonlinear_crystal():
 
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        h, zcheck_step, verbose=True):
+        h, zcheck_step, z0=0, verbose=True):
 
     #Get stuff
     NFFT = t.size
@@ -159,7 +159,7 @@ def NEE(t, x, Omega, f0,
         return -1j * k(z) * F1 
     
     #Here we go, initialize z tracker and calculate first half dispersion step
-    z = 0
+    z = z0 + h/2
     A[:] = A * np.exp(-1j*D*h/2) #Half step
     for kz in range(Nsteps):     
 
