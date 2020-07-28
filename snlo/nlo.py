@@ -133,9 +133,8 @@ def NEE(t, x, Omega, f0,
     tic = time.time()
     
     #Initialize the array that will store the full pulse evolution
-    a_evol = 1j*np.zeros([t.size, Nsteps+1])
-    a_evol[:, 0] = a #Initial value
-    
+    a_evol = 1j*np.zeros([t.size, Nsteps])
+
     #Nonlinear function
     def fnl(z, A):
         phi = phi_1 - phi_2*z
@@ -177,7 +176,7 @@ def NEE(t, x, Omega, f0,
         
         #Save evolution
         a = ifft_A()
-        a_evol[:, kz+1] = a
+        a_evol[:, kz] = a
         
         #Check for energy near the edges of time window
         r_begin = np.amax( np.abs( a[0:10] ) ) / np.amax( np.abs(a) )
