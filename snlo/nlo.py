@@ -21,7 +21,7 @@ class nonlinear_crystal():
         self.alpha = alpha      
   
     def propagate_NEE_fd(self, pulse, h, v_ref=None,
-                         verbose=True, zcheck_step = 0.5e-3):
+                         verbose=True, zcheck_step = 0.5e-3, z0=0):
         
         #Timer
         tic_total = time.time()
@@ -63,6 +63,7 @@ class nonlinear_crystal():
                           k = k, 
                           h = h, 
                           zcheck_step = zcheck_step, 
+                          z0 = 0,
                           verbose = verbose)
         
         tdelta = time.time() - tic_total
