@@ -172,7 +172,8 @@ class waveguide:
         return self.poling(z) * self.X0 / (4*self.N)
     
     def propagate_NEE(self, pulse, h, v_ref=None, 
-                         verbose=True, zcheck_step = 0.5e-3):
+                         verbose=True, zcheck_step = 0.5e-3,
+                         z0 = 0):
         #Timer
         tic_total = time.time()
          
@@ -208,7 +209,8 @@ class waveguide:
                           b1_ref = beta_1_ref, 
                           k = k, 
                           h = h, 
-                          zcheck_step = zcheck_step, 
+                          zcheck_step = zcheck_step,
+                          z0 = z0,
                           verbose = verbose)
         
         tdelta = time.time() - tic_total
