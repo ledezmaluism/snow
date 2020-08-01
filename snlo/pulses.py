@@ -164,15 +164,6 @@ def filter_signal(f_abs, X, f0, bw, type='ideal'):
     filtered = ifft( X * h )             
     return filtered, h
 
-def ideal_filter_signal(f_abs, X, f0, bw):
-    #Input in is the frequency domain already
-    f1 = f0 - bw/2
-    f2 = f0 + bw/2
-    h = np.zeros(X.size)
-    h[(f_abs >= f1) & (f_abs <= f2)] = 1 
-    filtered = ifft( X * h)
-    return filtered, fftshift(h)
-
 def energy_td(t, x):
     dt = t[1] - t[0]
     pwr = abs(x)**2
