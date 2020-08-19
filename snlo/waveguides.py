@@ -136,6 +136,8 @@ class waveguide:
         self.alpha = alpha
     
     def beta1(self, wl):
+        if np.isscalar(wl):
+            wl = np.asarray([wl])
         n = 2 #number of extrapolation levels
         wl_step = 1e-9 #Initial step size
         b1 = np.zeros_like(wl)
@@ -146,7 +148,15 @@ class waveguide:
         return b1
     
     def GVD(self, wl):
-        pass
+        if np.isscalar(wl):
+            wl = np.asarray([wl])
+        n = 2 #number of extrapolation levels
+        wl_step = 1e-9 #Initial step size
+        gvd = np.zeros_like(wl)
+        for kw in range(wl.size):
+            db1dl = util.derivative(self.beta1, wl[kw], n, wl_step)
+            gvd[kw] = - wl[kw]**2 / (2*pi*c) * db1dl
+        return gvd
     
     def propagate_linear(self, pulse):
         t = pulse.t
