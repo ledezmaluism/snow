@@ -89,6 +89,10 @@ def refractive_index(material, wl):
         A = np.array([1.39, 4.131, 2.57, 2.056])
         B = np.array([0.172**2, 0.234**2, 0.345**2, 27.5**2])
         n = sellmeier(A, B, wl)
+    elif material=='Si':
+        A = np.array([10.6684293, 0.0030434748, 1.54133408])
+        B = np.array([0.301516485**2, 1.13475115**2, 1104**2])
+        n = sellmeier(A, B, wl)
     elif material=='LT_MgO_e':
         #This one uses a different form of Sellmeier equation...
         A = np.array([4.49361274, -0.02299905, 0.09659086, -1.0505035e-3, 6.30479079e-4])
