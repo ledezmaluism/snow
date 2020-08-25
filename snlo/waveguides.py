@@ -22,7 +22,7 @@ class waveguide:
 
     def __init__(self, w_top=1e-6, h_ridge=700e-9, h_slab=350e-9, theta=60,
 
-                 tf_materal = 'LN_MgO_e',
+                 tf_material = 'LN_MgO_e',
                  box_material = 'SiO2',
                  clad_material = 'Air'):
         #validation
@@ -36,7 +36,7 @@ class waveguide:
         self.h_ridge = h_ridge
         self.h_slab = h_slab
         self.theta = theta
-        self.tf_material = tf_materal
+        self.tf_material = tf_material
         self.box_material = box_material
         self.clad_material = clad_material
     
@@ -44,20 +44,20 @@ class waveguide:
         self.etch = etch
         self.w_base = w_base
         
-    def neff(self, wl, mode='TE'):
+    def neff(self, wl, mode='TE', T=24.5):
         um = 1e-6
-        nridge = materials.refractive_index(self.tf_material, wl/um)
-        nbox = materials.refractive_index(self.box_material, wl/um)
-        nclad = materials.refractive_index(self.clad_material, wl/um)
+        nridge = materials.refractive_index(self.tf_material, wl/um, T=T)
+        nbox = materials.refractive_index(self.box_material, wl/um, T=T)
+        nclad = materials.refractive_index(self.clad_material, wl/um, T=T)
         w = (self.w_top + self.w_base)/2
         h = self.h_ridge
         hslab = self.h_slab
         return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
     
-    def add_narray(self, wl_abs):
+    def add_narray(self, wl_abs, T=24.5):
         neff = np.zeros(wl_abs.shape)
         for kw in range(wl_abs.size):
-            neff[kw] = self.neff(wl_abs[kw])
+            neff[kw] = self.neff(wl_abs[kw], T=T)
         self.neff_array = neff
         self.beta = 2 * pi * self.neff_array / wl_abs
         
