@@ -21,30 +21,43 @@ from . import pulses
 class waveguide:
 
     def __init__(self, w_top=1e-6, h_ridge=700e-9, h_slab=350e-9, theta=60,
-
                  tf_material = 'LN_MgO_e',
                  box_material = 'SiO2',
-                 clad_material = 'Air'):
-        #validation
-        etch = h_ridge - h_slab
-        w_base = w_top + 2*etch/np.tan(theta*pi/180)
-        if etch*(w_base-w_top)<0:
-            raise ValueError("Something wrong with this geometry")
-
-        #Attributes given
-        self.w_top = w_top
-        self.h_ridge = h_ridge
-        self.h_slab = h_slab
-        self.theta = theta
-        self.tf_material = tf_material
-        self.box_material = box_material
-        self.clad_material = clad_material
-    
-        #Attributes calculated
-        self.etch = etch
-        self.w_base = w_base
+                 clad_material = 'Air',
+                 behavioral = False,
+                 z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
         
-    def neff(self, wl, mode='TE', T=24.5):
+        if behavioral:
+            self.neff = self.neff_behavioral
+            self.beh_z_wl = z_wl
+            self.beh_wl_1 = wl_1
+            self.beh_wl_2 = wl_2
+            self.beh_GVM = GVM
+            self.beh_delta_n = delta_n
+            self.beh_n_f0= n_f0
+            self.wl_f0 = wl_f0
+        else:
+            self.neff = self.neff_physical
+            #validation
+            etch = h_ridge - h_slab
+            w_base = w_top + 2*etch/np.tan(theta*pi/180)
+            if etch*(w_base-w_top)<0:
+                raise ValueError("Something wrong with this geometry")
+    
+            #Attributes given
+            self.w_top = w_top
+            self.h_ridge = h_ridge
+            self.h_slab = h_slab
+            self.theta = theta
+            self.tf_material = tf_material
+            self.box_material = box_material
+            self.clad_material = clad_material
+        
+            #Attributes calculated
+            self.etch = etch
+            self.w_base = w_base
+        
+    def neff_physical(self, wl, mode='TE', T=24.5):
         um = 1e-6
         nridge = materials.refractive_index(self.tf_material, wl/um, T=T)
         nbox = materials.refractive_index(self.box_material, wl/um, T=T)
@@ -65,9 +78,9 @@ class waveguide:
         df = f_abs[1] - f_abs[0]
         self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
         
-    def behavioral(self, wl, z_wl, wl_1, wl_2, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
+    def neff_behavioral(self, wl, T=None):
         '''
-        This method is equivalent to "add_narray", but instead of using 
+        This method is equivalent to "neff", but instead of using 
         the physical waveguide parameters to calculate the behavior of the 
         waveguide, it defines the behavior directly 
         (so it defines a black box model of the waveguide)
@@ -92,7 +105,16 @@ class waveguide:
         -------
         Waveguide object.
 
-        '''
+        '''          
+        z_wl = self.beh_z_wl
+        wl_1 = self.beh_wl_1
+        wl_2 = self.beh_wl_2
+        GVM = self.beh_GVM
+        delta_n = self.beh_delta_n
+        n_f0 = self.beh_n_f0
+        wl_f0 = self.wl_f0
+        
+        
         if wl_f0 == None:
             wl_f0 = ( wl_1 + wl_2 )/2
         
@@ -121,13 +143,11 @@ class waveguide:
         
         # Now we can solve for the remaing parameters
         # beta_2 = c1*(omega**2 -(z1+z2)*omega + z1*z2)
-        beta_1 = c1*(omega**3/3 - (z1+z2)*(omega**2)/2 + z1*z2*omega) + c2
-        beta = c1*(omega**4/12 - (z1+z2)*(omega**3)/6 + z1*z2*(omega**2)/2) + c2*omega + c3
+        # beta_1 = c1*(omega**3/3 - (z1+z2)*(omega**2)/2 + z1*z2*omega) + c2
+        # beta = c1*(omega**4/12 - (z1+z2)*(omega**3)/6 + z1*z2*(omega**2)/2) + c2*omega + c3
         n = c*( c1*(omega**3/12 - (z1+z2)*(omega**2)/6 + z1*z2*omega/2) + c2 + c3/omega)
         
-        self.beta = beta
-        self.beta_1 = beta_1
-        self.neff_array = n
+        return n
         
     def set_length(self, L):
         self.L = L
