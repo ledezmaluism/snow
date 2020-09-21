@@ -51,7 +51,7 @@ class nonlinear_crystal():
             self.HR = HR
   
     def propagate_NEE_fd(self, pulse, h, v_ref=None,
-                         verbose=True, zcheck_step = 0.5e-3):
+                         verbose=True, zcheck_step = 0.5e-3, z0=0):
         
         #Timer
         tic_total = time.time()
@@ -93,6 +93,7 @@ class nonlinear_crystal():
                           k = k, 
                           h = h, 
                           zcheck_step = zcheck_step, 
+                          z0 = 0,
                           verbose = verbose)
         
         tdelta = time.time() - tic_total
@@ -105,7 +106,7 @@ class nonlinear_crystal():
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k,
         X3, X3R, HR, 
-        h, zcheck_step, verbose=True):
+        h, zcheck_step, z0=0, verbose=True):
 
     #Get stuff
     NFFT = t.size
@@ -164,9 +165,8 @@ def NEE(t, x, Omega, f0,
     tic = time.time()
     
     #Initialize the array that will store the full pulse evolution
-    a_evol = 1j*np.zeros([t.size, Nsteps+1])
-    a_evol[:, 0] = a #Initial value
-    
+    a_evol = 1j*np.zeros([t.size, Nsteps])
+
     #Nonlinear function
     #Let's have one for the case wehere there's only chi2
     def fnl_chi2(z, A):
@@ -204,7 +204,7 @@ def NEE(t, x, Omega, f0,
         fnl = fnl_chi3
        
     #Here we go, initialize z tracker and calculate first half dispersion step
-    z = 0
+    z = z0 + h/2
     A[:] = A * np.exp(-1j*D*h/2) #Half step
     for kz in range(Nsteps):     
 
@@ -222,7 +222,7 @@ def NEE(t, x, Omega, f0,
         
         #Save evolution
         a = ifft_A()
-        a_evol[:, kz+1] = a
+        a_evol[:, kz] = a
         
         #Check for energy near the edges of time window
         r_begin = np.amax( np.abs( a[0:10] ) ) / np.amax( np.abs(a) )

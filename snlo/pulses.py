@@ -99,7 +99,7 @@ def sech(t, Energy, FWHM, f0=0):
         AMPLITUDE ARRAY.
     '''
     Ppeak = 0.88*Energy/FWHM
-    x = np.sqrt(Ppeak) / np.cosh( 1.76 * t / FWHM )
+    x = np.sqrt(Ppeak) / np.cosh( 1.76 * t/ FWHM )
     return x * np.exp(1j*2*pi*f0*t)
 
 def noise(t, Npower):
@@ -139,19 +139,29 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100):
         Energy = 1e-12
         
     x = sech(t, Energy, FWHM, f0-f_ref)
-    Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
+    Npwr = np.amax(np.abs(x)**2) * 10**(Npwr_dB/10 )
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, domain='Time')
 
-def filter_signal(f_abs, X, f0, bw):
+def filter_signal(f_abs, X, f0, bw, type='ideal'):
     #Input in is the frequency domain already
-    f_min = np.amin(f_abs)
-    f_max = np.amax(f_abs)
-    f1 = (f0 - bw/2 - f_min)/(f_max-f_min)
-    f2 = (f0 + bw/2 - f_min)/(f_max-f_min)
-    sos = scipy.signal.butter(15, [f1, f2], 'bandpass', output='sos')
-    _, h = scipy.signal.sosfreqz(sos, worN = X.size)
-    filtered = ifft( X * fftshift(h) )
+    
+    if type == 'ideal':
+        f1 = f0 - bw/2
+        f2 = f0 + bw/2
+        h = np.ones_like(f_abs)
+        h[ f_abs < f1 ] = 0
+        h[ f_abs > f2 ] = 0
+    elif type == 'butterworth':
+        f_min = np.amin(f_abs)
+        f_max = np.amax(f_abs)
+        f1 = (f0 - bw/2 - f_min)/(f_max-f_min)
+        f2 = (f0 + bw/2 - f_min)/(f_max-f_min)
+        sos = scipy.signal.butter(15, [f1, f2], 'bandpass', output='sos')
+        _, h = scipy.signal.sosfreqz(sos, worN = X.size)
+        h = fftshift(h)
+    
+    filtered = ifft( X * h )             
     return filtered, h
 
 def energy_td(t, x):
@@ -396,6 +406,12 @@ def plot_ESD_dB_vs_wavelength(t, x, f0, label='Energy Spectral Density (dBJ / Hz
                               xlim=xlim, ylim=ylim, wl_unit=wl_unit)
     return ax
 
+def add_t_offset(pulse, t_offset):
+    p_spec = pulse.A
+    p_spec = np.multiply(p_spec,np.exp(1j*t_offset*pulse.Omega))
+    pulse.update_fd(p_spec)
+    return pulse
+
 class pulse:
     def __init__(self, t, x, wavelength, domain='Time'):
 
@@ -444,17 +460,15 @@ class pulse:
         if np.size(self.t) == np.size(a):
             self.a = a
             self.A = fft(a, self.NFFT)
-            self.update_param()
         else:
-            raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.')
+            raise RuntimeError('Hmm, this pulse seems different. Cannot update.')
 
     def update_fd(self, A):
         if np.size(self.t) == np.size(A):
             self.A = A
             self.a = ifft(A, self.NFFT)
-            self.update_param()
         else:
-            raise RuntimeError('Hmm, this pulse seems diffenrent. Cannot update.') 
+            raise RuntimeError('Hmm, this pulse seems different. Cannot update.') 
 
     def energy_td(self):
         t = self.t
