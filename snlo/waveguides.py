@@ -245,7 +245,7 @@ class waveguide:
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
-        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0)
+        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         return output_pulse, a_evol 
         
 def beta_f(kx, ky, n, k0):
