@@ -130,11 +130,16 @@ def NEE(t, x, Omega, f0,
     Aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
     f1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
     F1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    fe = pyfftw.empty_aligned(NFFT, dtype='complex128')
+    Fe = pyfftw.empty_aligned(NFFT, dtype='complex128')
     
     fft_a = pyfftw.FFTW(a, A)
     ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
     fft_f1up = pyfftw.FFTW(f1up, F1up)
     ifft_Aup = pyfftw.FFTW(Aup, aup, direction='FFTW_BACKWARD')
+    
+    fft_fe = pyfftw.FFTW(fe, Fe)
+    ifft_Fe = pyfftw.FFTW(Fe, fe, direction='FFTW_BACKWARD')
 
     #Input signal to frequency domain
     a[:] = x
@@ -191,12 +196,11 @@ def NEE(t, x, Omega, f0,
             return -1j * k(z) * F1 
         
     def fnl_chi3(z, A):
-        #TODO: Need to take FFT
-        #What happens with 3rd harmonic?
-        f2 = fnl_chi2(z, A)
-        fe = X3 * a * a * np.conj(a)
-        fr = 0
-        return f2  -1j *( fe + fr )
+        #TODO: include 3rd harmonic?
+        fft_a()
+        fe[:] = (3/8) * X3 * a * a * np.conj(a)
+        fft_fe()
+        return  fnl_chi2(z, A) + Fe
         
     if X3 != None:
         fnl = fnl_chi2
