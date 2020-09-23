@@ -44,7 +44,7 @@ def get_outenergy(out_full_td, dt, dTs, dT_val, pin_val,
     '''
     pin_index = np.argmin(np.abs(pins-pin_val))
     dT_index = np.argmin(np.abs(dTs-dT_val))
-    ave_energy = np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,pin_index,dT_index,:])],0))
+    ave_energy = np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,pin_index,dT_index,:])],0))*dt
     return ave_energy
 
 def plot_3d_spectrum(out_full_fd, f_abs, pulsetype, dTs, pins,
@@ -59,7 +59,7 @@ def plot_3d_spectrum(out_full_fd, f_abs, pulsetype, dTs, pins,
     f0_ff = f0_sh/2
     wl_array = c/fftshift(f_abs)*1/um
     index = np.argmin(np.abs(pins-pin_val))
-    PSDs = 20*np.log10(np.average(np.abs(out_full_fd[-numsamp:,index,:,:]),0)/np.amax(np.abs(out_full_fd[:,index,:,:])))*dt
+    PSDs = 20*np.log10(np.average(np.abs(out_full_fd[-numsamp:,index,:,:]),0)/np.amax(np.abs(out_full_fd[:,index,:,:])))
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
