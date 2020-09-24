@@ -56,6 +56,14 @@ class waveguide:
             #Attributes calculated
             self.etch = etch
             self.w_base = w_base
+            
+            #Nonlinearities initialization
+            self.poling = None
+            self.N = 1
+            self.X0 = 0
+            self.chi3 = 0
+            self.chi3_Rp = 0
+            self.HR = 0
         
     def neff_physical(self, wl, mode='TE', T=24.5):
         um = 1e-6
