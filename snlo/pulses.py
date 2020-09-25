@@ -243,7 +243,7 @@ def plot_vs_time(t, x, ylabel='', t_unit='ps', ax=None):
     
     return ax
         
-def __plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
+def plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
     '''
     Private function to plot stuff x vs wavelength (microns)
     '''        
@@ -266,7 +266,7 @@ def __plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
         
     return ax
             
-def __plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
+def plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
     '''
     Private function to plot stuff x vs frequency (THz)
     '''
@@ -311,9 +311,9 @@ def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
         label='Power Spectral Density (W / Hz)'
     
     if f_unit in ['um', 'nm']:
-        ax = __plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
+        ax = plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
     elif f_unit in ['GHz', 'THz', 'PHz']:
-        ax = __plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
+        ax = plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
         
     return ax
     
@@ -443,9 +443,9 @@ class pulse:
         label = 'Power Spectrum (dBm)'
         
         if f_unit in ['um', 'nm']:
-            ax = __plot_vs_wavelength(c/f, spectrum, ylabel=label, ax=ax, wl_unit=f_unit)
+            ax = plot_vs_wavelength(c/f, spectrum, ylabel=label, ax=ax, wl_unit=f_unit)
         elif f_unit in ['GHz', 'THz', 'PHz']:
-            ax = __plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
+            ax = plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
         
         return ax
 
