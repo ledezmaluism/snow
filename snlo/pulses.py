@@ -107,7 +107,7 @@ def noise(t, Npower):
     x = np.random.normal(scale = sigma, size = t.size) + 1j*np.random.normal(scale = sigma, size = t.size)
     return x
 
-def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100, frep=250e6):
+def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
     '''
     Generates a gaussian pulse with noise with a given Energy or peak power
     '''
@@ -116,16 +116,20 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100, 
         pass
     elif Ppeak != None:
         Energy = Ppeak * FWHM / 0.94
+    elif Pavg != None:
+        Energy = Pavg/frep
     else:
         print('Warning: Using default 1pJ of energy for the pulse')
         Energy = 1e-12
         
     x = gaussian(t, Energy, FWHM, f0-f_ref)
+    
+    Npwr_dB = abs(Npwr_dB)
     Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
-def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100, frep=250e6):
+def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
     '''
     Generates a sech pulse with noise with a given Energy or peak power
     '''
@@ -134,12 +138,16 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, f0=0, Npwr_dB=-100, frep
         pass
     elif Ppeak != None:
         Energy = Ppeak * FWHM / 0.88
+    elif Pavg != None:
+        Energy = Pavg/frep
     else:
         print('Warning: Using default 1pJ of energy for the pulse')
         Energy = 1e-12
         
     x = sech(t, Energy, FWHM, f0-f_ref)
-    Npwr = np.amax(np.abs(x)**2) * 10**(Npwr_dB/10 )
+    
+    Npwr_dB = abs(Npwr_dB)
+    Npwr = np.amax(np.abs(x)**2) * 10**(-Npwr_dB/10 )
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
@@ -235,7 +243,7 @@ def plot_vs_time(t, x, ylabel='', t_unit='ps', ax=None):
     
     return ax
         
-def __plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
+def plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
     '''
     Private function to plot stuff x vs wavelength (microns)
     '''        
@@ -258,7 +266,7 @@ def __plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
         
     return ax
             
-def __plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
+def plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
     '''
     Private function to plot stuff x vs frequency (THz)
     '''
@@ -303,12 +311,12 @@ def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
         label='Power Spectral Density (W / Hz)'
     
     if f_unit in ['um', 'nm']:
-        ax = __plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
+        ax = plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
     elif f_unit in ['GHz', 'THz', 'PHz']:
-        ax = __plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
+        ax = plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
         
     return ax
-
+    
 def add_t_offset(pulse, t_offset):
     p_spec = pulse.A
     p_spec = np.multiply(p_spec,np.exp(1j*t_offset*pulse.Omega))
@@ -400,6 +408,11 @@ class pulse:
     
     def get_psd_dBm(self):
         return get_psd_dBm(self.t, self.a, self.frep)
+    
+    def spectrum(self, res = 2e-9):
+        rbw = c/(self.wl**2)*res #to frequency
+        spectrum = 10*np.log10( self.get_psd()*rbw ) + 30 #to dBm
+        return spectrum
 
     def time_center(self):
         return pulse_center(self.t, self.a)
@@ -421,6 +434,19 @@ class pulse:
         frep = self.frep
         f0 = self.f0
         ax = plot_PSD(t, x, frep, f0, ax, f_unit, dBm)
+        return ax
+    
+    def plot_spectrum(self, res = 2e-9, f_unit='um', ax=None):
+        
+        f = self.f_abs
+        spectrum = self.spectrum(res)
+        label = 'Power Spectrum (dBm)'
+        
+        if f_unit in ['um', 'nm']:
+            ax = plot_vs_wavelength(c/f, spectrum, ylabel=label, ax=ax, wl_unit=f_unit)
+        elif f_unit in ['GHz', 'THz', 'PHz']:
+            ax = plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
+        
         return ax
 
 def test1():
