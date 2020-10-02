@@ -197,12 +197,12 @@ def NEE(t, x, Omega, f0,
         
     def fnl_chi3(z, A):
         #TODO: include 3rd harmonic?
-        fft_a()
-        fe[:] = (3/8) * X3 * a * a * np.conj(a)
-        fft_fe()
+        A = fft_a()
+        fe[:] = X3 * a * a * np.conj(a)
+        Fe = fft_fe() 
         return  fnl_chi2(z, A) + Fe
-        
-    if X3 != None:
+    
+    if X3 == None:
         fnl = fnl_chi2
     else:
         fnl = fnl_chi3
