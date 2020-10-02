@@ -27,6 +27,8 @@ class waveguide:
                  behavioral = False,
                  z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
         
+        self.GVD = self.beta2
+        
         if behavioral:
             self.neff = self.neff_behavioral
             self.beh_z_wl = z_wl
@@ -59,28 +61,36 @@ class waveguide:
         
     def neff_physical(self, wl, mode='TE', T=24.5):
         um = 1e-6
-        nridge = materials.refractive_index(self.tf_material, wl/um, T=T)
-        nbox = materials.refractive_index(self.box_material, wl/um, T=T)
-        nclad = materials.refractive_index(self.clad_material, wl/um, T=T)
         w = (self.w_top + self.w_base)/2
         h = self.h_ridge
         hslab = self.h_slab
-        return neff_ridge(wl, nridge, nbox, nclad, w, h, hslab, mode)
+            
+        if np.isscalar(wl):
+            wl = np.asarray([wl])
+            
+        neff = np.zeros(wl.shape)
+        for kw in range(wl.size):
+            nridge = materials.refractive_index(self.tf_material, wl[kw]/um, T=T)
+            nbox = materials.refractive_index(self.box_material, wl[kw]/um, T=T)
+            nclad = materials.refractive_index(self.clad_material, wl[kw]/um, T=T)
+
+            neff[kw] = neff_ridge(wl[kw], nridge, nbox, nclad, w, h, hslab, mode)
+        return neff
     
-    def add_narray(self, wl_abs, T=24.5):
-        neff = np.zeros(wl_abs.shape)
-        for kw in range(wl_abs.size):
-            neff[kw] = self.neff(wl_abs[kw], T=T)
-        self.neff_array = neff
-        self.beta = 2 * pi * self.neff_array / wl_abs
+    # def add_narray(self, wl_abs, T=24.5):
+    #     neff = np.zeros(wl_abs.shape)
+    #     for kw in range(wl_abs.size):
+    #         neff[kw] = self.neff(wl_abs[kw], T=T)
+    #     self.neff_array = neff
+    #     self.beta = 2 * pi * self.neff_array / wl_abs
         
-        f_abs = c / wl_abs
-        df = f_abs[1] - f_abs[0]
-        self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
+    #     f_abs = c / wl_abs
+    #     df = f_abs[1] - f_abs[0]
+    #     self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
         
     def neff_behavioral(self, wl, T=None):
         '''
-        This method is equivalent to "neff", but instead of using 
+        This method is equivalent to "neff_physical", but instead of using 
         the physical waveguide parameters to calculate the behavior of the 
         waveguide, it defines the behavior directly 
         (so it defines a black box model of the waveguide)
@@ -155,6 +165,10 @@ class waveguide:
     def set_loss(self, alpha):
         self.alpha = alpha
     
+    def beta(self, wl):
+        beta = 2 * pi * self.neff(wl) / wl
+        return beta
+    
     def beta1(self, wl):
         if np.isscalar(wl):
             wl = np.asarray([wl])
@@ -167,7 +181,7 @@ class waveguide:
             b1[kw] = (neff - wl[kw] * dndl)/c
         return b1
     
-    def GVD(self, wl):
+    def beta2(self, wl):
         if np.isscalar(wl):
             wl = np.asarray([wl])
         n = 2 #number of extrapolation levels
@@ -211,8 +225,7 @@ class waveguide:
         f0 = pulse.f0
         Omega  = pulse.Omega
         
-        # beta = 2 * pi * f_abs * self.neff_array / c
-        beta = self.beta
+        beta = self.beta( pulse.wl )
 
         if v_ref == None:
             vg = 1/self.beta_1
