@@ -220,7 +220,7 @@ class waveguide:
         self.N = N
         self.X0 = X0
         
-    def set_chi3(self, chi3, chi3_Rp, HR):
+    def set_chi3(self, chi3, chi3_Rp=0, HR=0):
         self.chi3 = chi3
         self.chi3_Rp = chi3_Rp
         self.HR = HR
