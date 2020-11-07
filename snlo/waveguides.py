@@ -165,19 +165,19 @@ class waveguide:
     def set_loss(self, alpha):
         self.alpha = alpha
     
-    def beta(self, wl):
-        beta = 2 * pi * self.neff(wl) / wl
+    def beta(self, wl, T=24.5):
+        beta = 2 * pi * self.neff(wl, T=T) / wl
         return beta
     
-    def beta1(self, wl):
+    def beta1(self, wl, T=24.5):
         if np.isscalar(wl):
             wl = np.asarray([wl])
         n = 2 #number of extrapolation levels
         wl_step = 1e-9 #Initial step size
         b1 = np.zeros_like(wl)
         for kw in range(wl.size):
-            dndl = util.derivative(self.neff, wl[kw], n, wl_step)
-            neff = self.neff(wl[kw])
+            dndl = util.derivative(self.neff, wl[kw], n, wl_step) #Still need to add temp here
+            neff = self.neff(wl[kw], T=T)
             b1[kw] = (neff - wl[kw] * dndl)/c
         return b1
     
@@ -217,7 +217,7 @@ class waveguide:
     
     def propagate_NEE(self, pulse, h, v_ref=None, 
                          verbose=True, zcheck_step = 0.5e-3,
-                         z0 = 0):
+                         z0 = 0, T=24.5):
         #Timer
         tic_total = time.time()
          
@@ -225,10 +225,10 @@ class waveguide:
         f0 = pulse.f0
         Omega  = pulse.Omega
         
-        beta = self.beta( pulse.wl )
+        beta = self.beta( pulse.wl, T=T)
 
         if v_ref == None:
-            vg = 1/self.beta_1
+            vg = 1/self.beta1( pulse.wl )
             v_ref = vg[0]
         
         beta_ref = beta[0]
