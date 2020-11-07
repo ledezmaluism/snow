@@ -77,6 +77,8 @@ def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         h, zcheck_step, z0=0, verbose=True):
 
+    h = float(h) #in case the input is a single element array
+    
     #Get stuff
     NFFT = t.size
     Omega_abs = Omega + 2*pi*f0
