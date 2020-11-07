@@ -448,6 +448,12 @@ class pulse:
             ax = plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
         
         return ax
+    
+    def apply_filter(self, f0, bw, type='ideal'):
+        f_abs = self.f_abs
+        X = self.A
+        filtered, h = filter_signal(f_abs, X, f0, bw, type=type)
+        return pulse(self.t, filtered, self.wl0, self.frep)
 
 def test1():
     pass
