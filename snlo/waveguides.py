@@ -175,9 +175,13 @@ class waveguide:
         n = 2 #number of extrapolation levels
         wl_step = 1e-9 #Initial step size
         b1 = np.zeros_like(wl)
+        
+        def neff_T(wl):
+            return self.neff(wl, T=T)
+        
         for kw in range(wl.size):
-            dndl = util.derivative(self.neff, wl[kw], n, wl_step) #Still need to add temp here
-            neff = self.neff(wl[kw], T=T)
+            dndl = util.derivative(neff_T, wl[kw], n, wl_step) #Still need to add temp here
+            neff = neff_T(wl[kw])
             b1[kw] = (neff - wl[kw] * dndl)/c
         return b1
     
