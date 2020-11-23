@@ -20,12 +20,14 @@ from . import pulses
 
 class waveguide:
 
-    def __init__(self, w_top=1e-6, h_ridge=700e-9, h_slab=350e-9, theta=60,
+    def __init__(self, w_top=1e-6, h_thinfilm=700e-9, h_etch=350e-9, theta=60,
                  tf_material = 'LN_MgO_e',
                  box_material = 'SiO2',
                  clad_material = 'Air',
                  behavioral = False,
                  z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
+        
+
         
         self.GVD = self.beta2
         
@@ -41,28 +43,28 @@ class waveguide:
         else:
             self.neff = self.neff_physical
             #validation
-            etch = h_ridge - h_slab
-            w_base = w_top + 2*etch/np.tan(theta*pi/180)
-            if etch*(w_base-w_top)<0:
+            # etch = h_ridge - h_slab
+            w_base = w_top + 2*h_etch/np.tan(theta*pi/180)
+            if h_etch*(w_base-w_top)<0:
                 raise ValueError("Something wrong with this geometry")
     
             #Attributes given
             self.w_top = w_top
-            self.h_ridge = h_ridge
-            self.h_slab = h_slab
+            self.h_etch = h_etch
+            self.h_thinfilm = h_thinfilm
             self.theta = theta
             self.tf_material = tf_material
             self.box_material = box_material
             self.clad_material = clad_material
         
             #Attributes calculated
-            self.etch = etch
             self.w_base = w_base
+            self.h_slab = h_thinfilm - h_etch
         
     def neff_physical(self, wl, mode='TE', T=24.5):
         um = 1e-6
         w = (self.w_top + self.w_base)/2
-        h = self.h_ridge
+        h = self.h_thinfilm
         hslab = self.h_slab
             
         if np.isscalar(wl):
