@@ -409,8 +409,9 @@ class pulse:
     def get_psd_dBm(self):
         return get_psd_dBm(self.t, self.a, self.frep)
     
-    def spectrum(self, res = 2e-9):
-        rbw = c/(self.wl**2)*res #to frequency
+    def spectrum(self, res):
+        # rbw = c/(self.wl**2)*res #to frequency
+        rbw = res
         spectrum = 10*np.log10( self.get_psd()*rbw ) + 30 #to dBm
         return spectrum
 
@@ -436,7 +437,10 @@ class pulse:
         ax = plot_PSD(t, x, frep, f0, ax, f_unit, dBm)
         return ax
     
-    def plot_spectrum(self, res = 2e-9, f_unit='um', ax=None):
+    def plot_spectrum(self, f_unit='um', res=None, ax=None):
+        
+        if res is None:
+            res = self.df
         
         f = self.f_abs
         spectrum = self.spectrum(res)
