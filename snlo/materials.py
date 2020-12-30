@@ -108,6 +108,23 @@ def refractive_index(material, wl, T=24.5):
         f = ( T - T0 ) * ( T + 570.82 )
         n2 = a1 + b1*f + (a2+b2*f)/(wl**2-(a3+b3*f)**2) + (a4+b4*f)/(wl**2-a5**2) - a6*wl**2
         n = np.sqrt(n2)
+    elif material=='LN_MgO_o_T':
+        #Temperature dependent model 
+        #from o. gayer, z. sacks, e. galun, a. arie 2008
+        a1 = 5.653
+        a2 = 0.1185
+        a3 = 0.2091
+        a4 = 89.61
+        a5 = 10.85
+        a6 = 1.97e-2
+        b1 = 7.941e-7
+        b2 = 3.134e-8
+        b3 = -4.641e-9
+        b4 = -2.188e-6
+        T0 = 24.5
+        f = ( T - T0 ) * ( T + 570.82 )
+        n2 = a1 + b1*f + (a2+b2*f)/(wl**2-(a3+b3*f)**2) + (a4+b4*f)/(wl**2-a5**2) - a6*wl**2
+        n = np.sqrt(n2)
     elif material=='LT_MgO_e':
         #This one uses a different form of Sellmeier equation...
         A = np.array([4.49361274, -0.02299905, 0.09659086, -1.0505035e-3, 6.30479079e-4])
