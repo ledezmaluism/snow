@@ -27,7 +27,7 @@ def poly_LT(A, wl):
     n2 =  A[0] + A[1]*wl**2 + A[2]/wl**2 + A[3]/wl**4 + A[4]/wl**6
     return np.sqrt(n2)
 
-def refractive_index(material, wl):
+def refractive_index(material, wl, T=24.5):
     '''
     Parameters
     ----------
@@ -35,6 +35,8 @@ def refractive_index(material, wl):
         'SiO2', 'Sapphire', 'LN_MgO_o', 'LN_MgO_e', 'LN_o', 'LN_e', 'GaP'
     wl : SCALAR
         Wavelength
+    T : SCALAR
+        Temperature
 
     Returns
     -------
@@ -89,6 +91,40 @@ def refractive_index(material, wl):
         A = np.array([1.39, 4.131, 2.57, 2.056])
         B = np.array([0.172**2, 0.234**2, 0.345**2, 27.5**2])
         n = sellmeier(A, B, wl)
+    elif material=='LN_MgO_e_T':
+        #Temperature dependent model 
+        #from o. gayer, z. sacks, e. galun, a. arie 2008
+        a1 = 5.756
+        a2 = 0.0983
+        a3 = 0.2020
+        a4 = 189.32
+        a5 = 12.52
+        a6 = 1.32e-2
+        b1 = 2.86e-6
+        b2 = 4.7e-8
+        b3 = 6.113e-8
+        b4 = 1.516e-4
+        T0 = 24.5
+        f = ( T - T0 ) * ( T + 570.82 )
+        n2 = a1 + b1*f + (a2+b2*f)/(wl**2-(a3+b3*f)**2) + (a4+b4*f)/(wl**2-a5**2) - a6*wl**2
+        n = np.sqrt(n2)
+    elif material=='LN_MgO_o_T':
+        #Temperature dependent model 
+        #from o. gayer, z. sacks, e. galun, a. arie 2008
+        a1 = 5.653
+        a2 = 0.1185
+        a3 = 0.2091
+        a4 = 89.61
+        a5 = 10.85
+        a6 = 1.97e-2
+        b1 = 7.941e-7
+        b2 = 3.134e-8
+        b3 = -4.641e-9
+        b4 = -2.188e-6
+        T0 = 24.5
+        f = ( T - T0 ) * ( T + 570.82 )
+        n2 = a1 + b1*f + (a2+b2*f)/(wl**2-(a3+b3*f)**2) + (a4+b4*f)/(wl**2-a5**2) - a6*wl**2
+        n = np.sqrt(n2)
     elif material=='LT_MgO_e':
         #This one uses a different form of Sellmeier equation...
         A = np.array([4.49361274, -0.02299905, 0.09659086, -1.0505035e-3, 6.30479079e-4])
