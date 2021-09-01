@@ -25,7 +25,7 @@ class waveguide:
                  box_material = 'SiO2',
                  clad_material = 'Air',
                  behavioral = False,
-                 z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
+                 z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None, c1=10**(-55)):
         
 
         
@@ -40,6 +40,7 @@ class waveguide:
             self.beh_delta_n = delta_n
             self.beh_n_f0= n_f0
             self.wl_f0 = wl_f0
+            self.c1 = c1
         else:
             self.neff = self.neff_physical
             #validation
@@ -140,7 +141,8 @@ class waveguide:
         omega = 2*pi*c/wl
         
         #Constants
-        c1 = 10 **(-55) #s^4/m
+        # c1 = 10 **(-55) #s^4/m
+        c1 = self.c1
         
         # First we want to determine the remianing free parameters
         z2_num = 6*GVM - 2*c1*(omega_2**3-omega_1**3)+3*c1*z1*(omega_2**2-omega_1**2)
