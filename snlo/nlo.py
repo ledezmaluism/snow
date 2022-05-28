@@ -5,9 +5,11 @@ Spyder Editor
 This is a temporary script file.
 """
 import numpy as np
-from numpy.fft import fftshift
+from numpy.fft import fftshift, fftfreq
 import time
-from scipy.constants import pi, c
+from scipy.constants import pi, c, h
+hplank = h
+
 import pyfftw
 
 from . import pulses
@@ -75,7 +77,7 @@ class nonlinear_crystal():
 
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        h, zcheck_step, z0=0, verbose=True):
+        h, zcheck_step, z0=0, verbose=True, qnoise=True):
 
     h = float(h) #in case the input is a single element array
     
@@ -85,6 +87,7 @@ def NEE(t, x, Omega, f0,
     f_max = np.amax(Omega_abs) / (2*pi)
     f_min = np.amin(Omega_abs) / (2*pi)
     BW = f_max - f_min
+    Δw = Omega[1] - Omega[0]
     
     #Calculate upsampling parameter, it usually will be Nup=4,
     #so, throw a warning if it needs to be 8
@@ -101,11 +104,14 @@ def NEE(t, x, Omega, f0,
     Aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
     f1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
     F1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
-    
+    xnoise = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    Xnoise = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+
     fft_a = pyfftw.FFTW(a, A)
     ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
     fft_f1up = pyfftw.FFTW(f1up, F1up)
     ifft_Aup = pyfftw.FFTW(Aup, aup, direction='FFTW_BACKWARD')
+    ifft_Xnoise = pyfftw.FFTW(Xnoise, xnoise, direction='FFTW_BACKWARD')
 
     #Input signal to frequency domain
     a[:] = x
@@ -117,6 +123,8 @@ def NEE(t, x, Omega, f0,
     phi_1 = 2*pi*f0*tup
     phi_2 = b0 - b1_ref*2*pi*f0
     F1 = np.zeros_like(A)
+    Δtup = tup[1]-tup[0]
+    Omega_abs_up = np.abs( 2*pi*(fftfreq(Nup*NFFT, Δtup) + f0) )
     
     #Upsampling stuff
     M = NFFT*Nup - A.size
@@ -150,7 +158,8 @@ def NEE(t, x, Omega, f0,
         
         #Nonlinear stuff
         xup = aup*(np.cos(phi) + 1j*np.sin(phi))
-        f1up[:] = aup*(xup + 2*np.conj(xup))
+        xup_conj = np.conj(aup + xnoise)*(np.cos(phi) - 1j*np.sin(phi))
+        f1up[:] = aup*(xup + 2*xup_conj)
 
         #Downsample
         F1up = fft_f1up()
@@ -164,6 +173,14 @@ def NEE(t, x, Omega, f0,
     z = z0 + h/2
     A[:] = A * np.exp(-1j*D*h/2) #Half step
     for kz in range(Nsteps):     
+
+        #vacuum noise at each step
+        if qnoise:
+            ϕ = np.random.uniform( 0, 2*pi, Nup*NFFT )
+            Xnoise[:] = (1/Δtup) * np.sqrt(hplank*Omega_abs_up/2/Δw) * np.exp(1j * ϕ)
+            xnoise = ifft_Xnoise()
+        else:
+            xnoise = 0
 
         #Nonlinear step
         #Runge-Kutta 4th order
@@ -182,12 +199,12 @@ def NEE(t, x, Omega, f0,
         a_evol[:, kz] = a
         
         #Check for energy near the edges of time window
-        r_begin = np.amax( np.abs( a[0:10] ) ) / np.amax( np.abs(a) )
-        r_end = np.amax( np.abs( a[-10:] ) ) / np.amax( np.abs(a) )
-        if r_begin>1e-2 or r_end>1e-2:
-            print('Warning: signal seems to have reach time domain borders!')
-            print('Aborting!!!')
-            break
+        # r_begin = np.amax( np.abs( a[0:10] ) ) / np.amax( np.abs(a) )
+        # r_end = np.amax( np.abs( a[-10:] ) ) / np.amax( np.abs(a) )
+        # if r_begin>1e-2 or r_end>1e-2:
+        #     print('Warning: signal seems to have reach time domain borders!')
+        #     print('Aborting!!!')
+        #     break
         
         #Let's inform the user now
         if verbose and round(z*1e3,3)==round(zcheck*1e3,3):

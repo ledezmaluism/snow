@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+    # -*- coding: utf-8 -*-
 """
 Created on Thu Aug 15 08:57:17 2019
 @author: Luis Ledezma
@@ -9,7 +9,7 @@ Module to calculate waveguide parameters semi-analytically
 
 import numpy as np
 import time
-from numpy.fft import fftshift
+from numpy.fft import fftshift, ifft
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 from scipy import interpolate
@@ -211,14 +211,29 @@ class waveguide:
             gvd[kw] = - wl[kw]**2 / (2*pi*c) * db1dl
         return gvd
     
-    def propagate_linear(self, pulse):
+    def propagate_linear(self, pulse, v_ref=None, L=None, T=24.5):
+        
+        if L is None:
+            L = self.L
+        
+        #Get pulse info
         t = pulse.t
-        x = pulse.a
-        wl_ref= pulse.wl0
+        wl_ref = pulse.wl0
+        Omega  = pulse.Omega
         
-        x = x * np.exp(-self.alpha*self.L) * np.exp(-1j * self.beta * self.L)
+        beta = self.beta( pulse.wl, T=T)
+
+        if v_ref == None:
+            vg = 1/self.beta1( pulse.wl )
+            v_ref = vg[0]
         
-        output_pulse = pulses.pulse(t, x, wl_ref)
+        beta_ref = beta[0]
+        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
+        
+        x = ifft(pulse.A * np.exp(-1j*D*L))
+        
+        output_pulse = pulses.pulse(t, x, wl_ref, pulse.frep)
+        
         return output_pulse
     
     def add_poling(self, poling):
@@ -236,7 +251,7 @@ class waveguide:
     
     def propagate_NEE(self, pulse, h, v_ref=None, 
                          verbose=True, zcheck_step = 0.5e-3,
-                         z0 = 0, T=24.5):
+                         z0 = 0, T=24.5, qnoise=True):
         #Timer
         tic_total = time.time()
          
@@ -273,7 +288,8 @@ class waveguide:
                           h = h, 
                           zcheck_step = zcheck_step,
                           z0 = z0,
-                          verbose = verbose)
+                          verbose = verbose,
+                          qnoise = qnoise)
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
