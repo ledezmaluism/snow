@@ -94,8 +94,7 @@ def NEE(t, x, Omega, f0,
     Nup = 4
     if (3*f_max - f_min)/BW > Nup:
         Nup = 8
-        print('Warning: large upsampling necessary!')
-    print('Using %ix upsampling.' %(Nup))
+        print('Warning: large upsampling necessary!') 
     
     #Initialize the FFTW arrays
     a = pyfftw.empty_aligned(NFFT, dtype='complex128')
@@ -135,9 +134,11 @@ def NEE(t, x, Omega, f0,
     Nsteps = int(L/h)
     
     #Print out some info
-    print('Crystal length = %0.2f mm' %(L*1e3))
-    print('Step size = %0.2f um' %(h*1e6))
-    print('Number of steps = %i' %(Nsteps))
+    if verbose:
+        print('Using %ix upsampling.' %(Nup))
+        print('Crystal length = %0.2f mm' %(L*1e3))
+        print('Step size = %0.2f um' %(h*1e6))
+        print('Number of steps = %i' %(Nsteps))
         
     #Let's inform the user after every zcheck_step
     zcheck = zcheck_step
@@ -191,7 +192,7 @@ def NEE(t, x, Omega, f0,
         A[:] = A + (h/6)*(k1+2*k2+2*k3+k4) 
         z = z + h
         
-        #Linear full step (two half-steps back to back)
+        #Linear full step (two half-steps back-to-back)
         A[:] = Dh*A
         
         #Save evolution
