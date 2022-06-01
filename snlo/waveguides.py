@@ -68,6 +68,12 @@ class waveguide:
             #Attributes calculated
             self.w_base = w_base
             self.h_slab = h_thinfilm - h_etch
+            
+            #Default NO poling
+            self.poling = lambda z: 1
+            
+            #Default NO loss
+            self.alpha = 0
         
     def neff_physical(self, wl, mode='TE', T=24.5):
         um = 1e-6
@@ -177,6 +183,7 @@ class waveguide:
         self.L = L
         
     def set_loss(self, alpha):
+        #this is power loss, i.e. need to divide by 2 for field loss
         self.alpha = alpha
     
     def beta(self, wl, T=24.5):
