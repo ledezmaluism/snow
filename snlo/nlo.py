@@ -170,10 +170,12 @@ def NEE(t, x, Omega, f0,
 
         return -1j * k(z) * F1 
     
-    #Here we go, initialize z tracker and calculate first half dispersion step
+    #Here we go...
     z = z0 + h/2
-    A[:] = A * np.exp(-1j*D*h/2) #Half step
+    
     for kz in range(Nsteps):     
+
+        A[:] = A * np.exp(-1j*D*h/2) #Linear Half step        
 
         #vacuum noise at each step
         if qnoise:
@@ -192,8 +194,7 @@ def NEE(t, x, Omega, f0,
         A[:] = A + (h/6)*(k1+2*k2+2*k3+k4) 
         z = z + h
         
-        #Linear full step (two half-steps back-to-back)
-        A[:] = Dh*A
+        A[:] = A * np.exp(-1j*D*h/2) #Linear Half step  
         
         #Save evolution
         a = ifft_A()
@@ -214,7 +215,6 @@ def NEE(t, x, Omega, f0,
             tic = time.time()
             zcheck += zcheck_step
 
-    A[:] = A * np.exp(1j*D*h/2) #Final half dispersion step back
     a = ifft_A()
     
     return a, a_evol 
