@@ -117,7 +117,7 @@ def NEE(t, x, Omega, f0,
     A = fft_a()
 
     #Pre-compute some stuff:
-    Dh = np.exp(-1j*D*h) #Dispersion operator for step size h
+    Dh = np.exp(-1j*D*h/2) #Dispersion operator for step size h/2
     tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
     phi_1 = 2*pi*f0*tup
     phi_2 = b0 - b1_ref*2*pi*f0
@@ -145,7 +145,8 @@ def NEE(t, x, Omega, f0,
     tic = time.time()
     
     #Initialize the array that will store the full pulse evolution
-    a_evol = 1j*np.zeros([t.size, Nsteps])
+    a_evol = 1j*np.zeros([t.size, Nsteps + 1])
+    a_evol[:, 0] = a
 
     #Nonlinear function
     def fnl(z, A):
@@ -175,7 +176,7 @@ def NEE(t, x, Omega, f0,
     
     for kz in range(Nsteps):     
 
-        A[:] = A * np.exp(-1j*D*h/2) #Linear Half step        
+        A[:] = A * Dh #Linear Half step        
 
         #vacuum noise at each step
         if qnoise:
@@ -194,7 +195,7 @@ def NEE(t, x, Omega, f0,
         A[:] = A + (h/6)*(k1+2*k2+2*k3+k4) 
         z = z + h
         
-        A[:] = A * np.exp(-1j*D*h/2) #Linear Half step  
+        A[:] = A * Dh #Linear Half step  
         
         #Save evolution
         a = ifft_A()
