@@ -278,8 +278,58 @@ class waveguide:
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
-        return output_pulse, a_evol 
+        return output_pulse, a_evol
         
+    def propagate_NEE2(self, pulse, h, v_ref=None, 
+                         verbose=True, zcheck_step = 0.5e-3,
+                         z0 = 0, T=24.5):
+        #Timer
+        tic_total = time.time()
+         
+        #Get pulse info
+        f0 = pulse.f0
+        Omega  = pulse.Omega
+        
+        beta = self.beta( pulse.wl, T=T)
+
+        if v_ref == None:
+            vg = 1/self.beta1( pulse.wl )
+            v_ref = vg[0]
+        
+        beta_ref = beta[0]
+        # beta_ref = 0
+        # beta_ref = beta[np.argmax(np.abs(pulse.A))]
+        
+        beta_1_ref = 1/v_ref
+        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
+
+        omega_ref = 2*pi*f0
+        omega_abs = omega_ref + Omega
+        
+        def k(z):
+            p = self.poling(z)
+            return p * self.X0 * omega_abs / (4 * self.N)
+
+        [a, a_evol] = nlo.NEE2(t = pulse.t, 
+                          x = pulse.a,
+                          Omega = Omega,
+                          f0 = pulse.f0,
+                          L = self.L,
+                          D = D, 
+                          b0 = beta_ref, 
+                          b1_ref = beta_1_ref, 
+                          k = k, 
+                          h = h, 
+                          zcheck_step = zcheck_step,
+                          z0 = z0,
+                          verbose = verbose)
+        
+        tdelta = time.time() - tic_total
+        print('Total time = %0.1f s' %(tdelta))
+        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
+        
+        return output_pulse, a_evol
+    
 def beta_f(kx, ky, n, k0):
     '''
     Propagation constant in the z-direction
