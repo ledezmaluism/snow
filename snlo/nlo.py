@@ -280,7 +280,7 @@ def NEE2(t, x, Omega, f0,
         return -1j * k(z) * F1 * np.exp(1j*D*h)
     
     #Here we go, initialize z tracker and calculate first half dispersion step
-    rtol = 1e-3
+    rtol = 1e-4
     atol = 1e-9
     
     Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol, first_step=h)
@@ -308,6 +308,110 @@ def NEE2(t, x, Omega, f0,
     
     return a, steps
 
+def NEE3(t, x, Omega, f0,
+        L, D, b0, b1_ref, k, 
+        h, zcheck_step, z0=0, verbose=True, Kg=0):
+
+    h = float(h) #in case the input is a single element array
+    
+    #Get stuff
+    NFFT = t.size
+    Omega_abs = Omega + 2*pi*f0
+    f_max = np.amax(Omega_abs) / (2*pi)
+    f_min = np.amin(Omega_abs) / (2*pi)
+    BW = f_max - f_min
+    
+    #Calculate upsampling parameter, it usually will be Nup=4,
+    #so, throw a warning if it needs to be 8
+    Nup = 4
+    if (3*f_max - f_min)/BW > Nup:
+        Nup = 8
+        print('Warning: large upsampling necessary!')
+    print('Using %ix upsampling.' %(Nup))
+    
+    #Initialize the FFTW arrays
+    a = pyfftw.empty_aligned(NFFT, dtype='complex128')
+    A = pyfftw.empty_aligned(NFFT, dtype='complex128')
+    aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    Aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    f1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    F1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
+    
+    fft_a = pyfftw.FFTW(a, A)
+    ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
+    fft_f1up = pyfftw.FFTW(f1up, F1up)
+    ifft_Aup = pyfftw.FFTW(Aup, aup, direction='FFTW_BACKWARD')
+
+    #Input signal to frequency domain
+    a[:] = x
+    A = fft_a()
+    
+    tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
+    phi_1 = 2*pi*f0*tup
+    phi_2 = b0 - b1_ref*2*pi*f0 + Kg
+    F1 = np.zeros_like(A)
+    
+    #Upsampling stuff
+    M = NFFT*Nup - A.size
+    Xc = np.zeros(M)
+    center = A.size // 2 + 1
+
+    z_prev = 0
+    #Nonlinear function
+    def fnl(z, A):
+        phi = phi_1 - phi_2*z
+        
+        h = z - z_prev
+        # print([z_prev*1e6, h*1e6])
+        #get fast envelope
+        A[:] = A * np.exp(-1j*D*h )
+        
+        #Upsample
+        Aup[:center] = A[:center]
+        Aup[center:center+M] = Xc
+        Aup[center+M:] = A[center:]
+        aup[:] = ifft_Aup() * Nup
+        
+        #Nonlinear stuff
+        xup = aup*(np.cos(phi) + 1j*np.sin(phi))
+        f1up[:] = aup*(xup + 2*np.conj(xup))
+
+        #Downsample
+        F1up = fft_f1up()
+        F1[:center] = F1up[:center]
+        F1[center:] = F1up[center+M:]
+        F1[:] = F1 / Nup
+
+        return -1j * k(z) * F1 * np.exp(1j*D*h)
+    
+    #Here we go, initialize z tracker and calculate first half dispersion step
+    rtol = 1e-5
+    atol = 1e-9
+    
+    Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol)
+    # Integrator = BDF( fnl, z0, A, L, rtol=rtol, atol=atol, first_step=h)
+    
+    steps = np.array([])
+    while Integrator.status == "running":
+    
+        z_prev = Integrator.t
+        Integrator.step()
+        # h = Integrator.step_size
+        
+        
+        # z = np.append( z, Integrator.t )
+        # A = np.append( A, Integrator.y )
+        
+        steps = np.append( steps, Integrator.step_size )
+        
+    print()
+    print( Integrator.status )
+    print()
+    
+    A[:] = Integrator.y
+    a = ifft_A()
+    
+    return a, steps
 
 def test1():
     pass
