@@ -62,11 +62,13 @@ def refractive_index(material, wl, T=24.5):
     A = 0
     B = 0
     if material=='SiO2':
+        "https://refractiveindex.info/?shelf=main&book=SiO2&page=Malitson"
         A = np.array([0.6961663, 0.4079426, 0.8974794])
         B = np.array([0.0684043, 0.1162414, 9.896161])
         B = B**2
         n = sellmeier(A, B, wl)
     elif material=='Sapphire':
+        "https://refractiveindex.info/?shelf=main&book=Al2O3&page=Malitson-e"
         A = np.array([1.5039759, 0.55069141, 6.5927379])
         B = np.array([0.0740288, 0.1216529, 20.072248])
         B = B**2

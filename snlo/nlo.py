@@ -12,7 +12,7 @@ import pyfftw
 
 from . import pulses
 
-from scipy.integrate import RK45, LSODA, BDF
+from scipy.integrate import RK45
 
 class nonlinear_crystal():
     
