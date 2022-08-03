@@ -323,6 +323,16 @@ def add_t_offset(pulse, t_offset):
     pulse.update_fd(p_spec)
     return pulse
 
+def phase(x, unwrap=True):
+    xpeak = np.amax(np.abs(x))
+    xnorm = x/xpeak
+    p = np.ones( xnorm.size ) * np.nan
+    mask = np.abs(xnorm) > 0.001
+    p[mask] = np.angle(xnorm[mask])
+    if unwrap:
+        p[mask] = np.unwrap(p[mask])
+    return p
+
 class pulse:
     def __init__(self, t, x, wavelength, frep, domain='Time'):
 
@@ -354,7 +364,7 @@ class pulse:
         #Dynamic atributes, they change as pulse propagates
         if domain=='Time':
             self.a = x
-            self.A = fft(x, self.NFFT)
+            self.A = fft( fftshift(x), self.NFFT)
         elif domain=='Freq':
             self.A = x
             self.a = ifft(x, self.NFFT)
@@ -382,7 +392,7 @@ class pulse:
     def update_td(self, a):
         if np.size(self.t) == np.size(a):
             self.a = a
-            self.A = fft(a, self.NFFT)
+            self.A = fft( fftshift(a), self.NFFT)
         else:
             raise RuntimeError('Hmm, this pulse seems different. Cannot update.')
 
@@ -458,6 +468,12 @@ class pulse:
         X = self.A
         filtered, h = filter_signal(f_abs, X, f0, bw, type=type)
         return pulse(self.t, filtered, self.wl0, self.frep)
+
+    def spectral_phase(self, unwrap=True):
+        return phase( self.A, unwrap=unwrap )
+    
+    def temporal_phase(self, unwrap=True):
+        return phase( self.a, unwrap=unwrap )
 
 def test1():
     pass

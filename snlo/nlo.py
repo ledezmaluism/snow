@@ -312,7 +312,7 @@ def NEE3(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         h, zcheck_step, z0=0, verbose=True, Kg=0):
 
-    h = float(h) #in case the input is a single element array
+    # h = float(h) #in case the input is a single element array
     
     #Get stuff
     NFFT = t.size
