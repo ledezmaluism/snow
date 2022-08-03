@@ -12,6 +12,7 @@ import time
 from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
+from scipy import interpolate
 
 from . import materials
 from . import util
@@ -25,7 +26,10 @@ class waveguide:
                  box_material = 'SiO2',
                  clad_material = 'Air',
                  behavioral = False,
-                 z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None):
+                 z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None, c1=10**(-55),
+                 external = False,
+                 wl_array = np.array([1e-6]), n_array=np.array([1.0]) 
+                 ):
         
 
         
@@ -40,6 +44,10 @@ class waveguide:
             self.beh_delta_n = delta_n
             self.beh_n_f0= n_f0
             self.wl_f0 = wl_f0
+            self.c1 = c1
+        elif external:
+            self.tck = interpolate.splrep( wl_array, n_array, s=0 )
+            self.neff = self.neff_interp
         else:
             self.neff = self.neff_physical
             #validation
@@ -89,7 +97,10 @@ class waveguide:
     #     f_abs = c / wl_abs
     #     df = f_abs[1] - f_abs[0]
     #     self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
-        
+    
+    def neff_interp(self, wl, T=25):
+        return interpolate.splev(wl, self.tck, der=0)
+    
     def neff_behavioral(self, wl, T=None):
         '''
         This method is equivalent to "neff_physical", but instead of using 
@@ -140,7 +151,8 @@ class waveguide:
         omega = 2*pi*c/wl
         
         #Constants
-        c1 = 10 **(-55) #s^4/m
+        # c1 = 10 **(-55) #s^4/m
+        c1 = self.c1
         
         # First we want to determine the remianing free parameters
         z2_num = 6*GVM - 2*c1*(omega_2**3-omega_1**3)+3*c1*z1*(omega_2**2-omega_1**2)
@@ -172,6 +184,7 @@ class waveguide:
         return beta
     
     def beta1(self, wl, T=24.5):
+        
         if np.isscalar(wl):
             wl = np.asarray([wl])
         n = 2 #number of extrapolation levels
