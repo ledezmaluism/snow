@@ -323,11 +323,11 @@ def add_t_offset(pulse, t_offset):
     pulse.update_fd(p_spec)
     return pulse
 
-def phase(x, unwrap=True):
+def phase(x, unwrap=True, threshold=1e-3):
     xpeak = np.amax(np.abs(x))
     xnorm = x/xpeak
     p = np.ones( xnorm.size ) * np.nan
-    mask = np.abs(xnorm) > 0.001
+    mask = np.abs(xnorm) > threshold
     p[mask] = np.angle(xnorm[mask])
     if unwrap:
         p[mask] = np.unwrap(p[mask])
@@ -399,7 +399,7 @@ class pulse:
     def update_fd(self, A):
         if np.size(self.t) == np.size(A):
             self.A = A
-            self.a = ifft(A, self.NFFT)
+            self.a = fftshift( ifft(A, self.NFFT) )
         else:
             raise RuntimeError('Hmm, this pulse seems different. Cannot update.') 
 
@@ -469,11 +469,11 @@ class pulse:
         filtered, h = filter_signal(f_abs, X, f0, bw, type=type)
         return pulse(self.t, filtered, self.wl0, self.frep)
 
-    def spectral_phase(self, unwrap=True):
-        return phase( self.A, unwrap=unwrap )
+    def spectral_phase(self, unwrap=True, threshold=1e-3):
+        return phase( self.A, unwrap=unwrap, threshold=threshold )
     
-    def temporal_phase(self, unwrap=True):
-        return phase( self.a, unwrap=unwrap )
+    def temporal_phase(self, unwrap=True, threshold=1e-3):
+        return phase( self.a, unwrap=unwrap, threshold=threshold )
 
 def test1():
     pass
