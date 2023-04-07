@@ -1,7 +1,7 @@
 # SNOW: Software for Nonlinear Optical Waveguides.
 
 Requirements:
-- FFTW
+- pyFFTW
 
 Optional:
 - Colorcet
