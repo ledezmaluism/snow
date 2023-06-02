@@ -224,10 +224,16 @@ def add_2D_mode_solver(MODE, meshsize, h_LN, h_substrate, w_slab, wg_length,
     
     time.sleep(0.1)
 
-def solve_mode(MODE, wavelength, nmodes=20):
+def solve_mode(MODE, wavelength, nmodes=20, n_guess=np.nan):
     MODE.switchtolayout()
     MODE.set("wavelength", wavelength)
     MODE.set("number of trial modes", nmodes)
+
+    if np.isnan(n_guess):
+        MODE.set("use max index", True)
+    else:
+        MODE.set("use max index", False)
+        MODE.set("n", n_guess)
     n = int(MODE.findmodes())
     
     neff = np.zeros(n) #effective  index matrix
