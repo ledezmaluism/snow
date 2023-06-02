@@ -1,4 +1,4 @@
-# SNOW: Simulator for Nonlinear Optical Waveguides.
+# snow: Simulator for Nonlinear Optical Waveguides.
 
 Requirements:
 - pyFFTW
