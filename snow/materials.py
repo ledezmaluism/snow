@@ -1,3 +1,6 @@
+"""
+@author: Luis Ledezma
+"""
 import numpy as np
 
 def sellmeier(A, B, wl):

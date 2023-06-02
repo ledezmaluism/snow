@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Spyder Editor
-
-This is a temporary script file.
+@author: Luis Ledezma
 """
 import numpy as np
 from numpy.fft import fftshift
