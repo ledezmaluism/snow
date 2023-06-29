@@ -277,10 +277,11 @@ class waveguide:
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
+        print()
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         return output_pulse, a_evol
         
-    def propagate_NEE2(self, pulse, h, v_ref=None, 
+    def propagate_NEE2(self, pulse, v_ref=None, 
                          verbose=True, zcheck_step = 0.5e-3,
                          z0 = 0, T=24.5):
         #Timer
@@ -318,14 +319,14 @@ class waveguide:
                           D = D, 
                           b0 = beta_ref, 
                           b1_ref = beta_1_ref, 
-                          k = k, 
-                          h = h, 
+                          k = k,
                           zcheck_step = zcheck_step,
                           z0 = z0,
                           verbose = verbose)
         
         tdelta = time.time() - tic_total
         print('Total time = %0.1f s' %(tdelta))
+        print()
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         
         return output_pulse, a_evol
@@ -376,6 +377,7 @@ class waveguide:
             
             tdelta = time.time() - tic_total
             print('Total time = %0.1f s' %(tdelta))
+            print()
             output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
             
             return output_pulse, a_evol
