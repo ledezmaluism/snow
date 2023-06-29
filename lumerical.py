@@ -241,10 +241,10 @@ def solve_mode(MODE, wavelength, nmodes=20, n_guess=np.nan):
     loss = np.zeros(n) #group  index matrix
     TE = np.zeros(n) #TE polarization fraction
     for k in range(n):    
-        neff[k] = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k+1), "neff")))
-        ng[k] = np.float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'ng')))
-        loss[k] = np.float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'loss')))
-        TE[k] = np.float(MODE.getdata("FDE::data::mode"+str(k+1), "TE polarization fraction"))
+        neff[k] = float(np.real(MODE.getdata("FDE::data::mode"+str(k+1), "neff")))
+        ng[k] = float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'ng')))
+        loss[k] = float(np.real(MODE.getdata('FDE::data::mode'+str(k+1), 'loss')))
+        TE[k] = float(MODE.getdata("FDE::data::mode"+str(k+1), "TE polarization fraction"))
         
     return neff, ng, loss, TE
 

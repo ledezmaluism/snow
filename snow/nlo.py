@@ -7,6 +7,7 @@ from numpy.fft import fftshift
 import time
 from scipy.constants import pi, c
 import pyfftw
+import pyfftw.interfaces.numpy_fft as fft
 
 from . import pulses
 
@@ -76,6 +77,10 @@ class nonlinear_crystal():
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         h, zcheck_step, z0=0, verbose=True):
+    """
+    Baseline method. Not adaptive. The step size h is used.
+    The entire poling function is used (h << poling period)
+    """
 
     h = float(h) #in case the input is a single element array
     
@@ -203,9 +208,11 @@ def NEE(t, x, Omega, f0,
 
 def NEE2(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        h, zcheck_step, z0=0, verbose=True):
+        zcheck_step, z0=0, verbose=True):
+    """
+    Adaptive solver; h is not used.
 
-    h = float(h) #in case the input is a single element array
+    """
     
     #Get stuff
     NFFT = t.size
@@ -221,96 +228,71 @@ def NEE2(t, x, Omega, f0,
         Nup = 8
         print('Warning: large upsampling necessary!')
     print('Using %ix upsampling.' %(Nup))
-    
-    #Initialize the FFTW arrays
-    a = pyfftw.empty_aligned(NFFT, dtype='complex128')
-    A = pyfftw.empty_aligned(NFFT, dtype='complex128')
-    aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
-    Aup = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
-    f1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
-    F1up = pyfftw.empty_aligned(Nup*NFFT, dtype='complex128')
-    
-    fft_a = pyfftw.FFTW(a, A)
-    ifft_A = pyfftw.FFTW(A, a, direction='FFTW_BACKWARD')
-    fft_f1up = pyfftw.FFTW(f1up, F1up)
-    ifft_Aup = pyfftw.FFTW(Aup, aup, direction='FFTW_BACKWARD')
 
     #Input signal to frequency domain
-    a[:] = x
-    A = fft_a()
+    A = fft.fft(x)
+    Aup = np.zeros( Nup*NFFT ) * 1j
     
     tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
     phi_1 = 2*pi*f0*tup
     phi_2 = b0 - b1_ref*2*pi*f0
-    F1 = np.zeros_like(A)
     
     #Upsampling stuff
     M = NFFT*Nup - A.size
     Xc = np.zeros(M)
     center = A.size // 2 + 1
 
-    z_prev = 0
     #Nonlinear function
-    def fnl(z, A):
+    def fnl(z, y):
         phi = phi_1 - phi_2*z
         
-        h = z - z_prev
-        # print([z_prev*1e6, h*1e6])
         #get fast envelope
-        A[:] = A * np.exp(-1j*D*h )
+        y = y * np.exp(-1j*D*z)
         
         #Upsample
-        Aup[:center] = A[:center]
+        Aup[:center] = y[:center]
         Aup[center:center+M] = Xc
-        Aup[center+M:] = A[center:]
-        aup[:] = ifft_Aup() * Nup
-        
+        Aup[center+M:] = y[center:]
+        aup = fft.ifft(Aup) * Nup
+
         #Nonlinear stuff
         xup = aup*(np.cos(phi) + 1j*np.sin(phi))
-        f1up[:] = aup*(xup + 2*np.conj(xup))
+        f1up = aup*(xup + 2*np.conj(xup))
 
         #Downsample
-        F1up = fft_f1up()
+        F1 = np.zeros_like(y)
+        F1up = fft.fft(f1up)
         F1[:center] = F1up[:center]
         F1[center:] = F1up[center+M:]
-        F1[:] = F1 / Nup
+        F1 = F1 / Nup
 
-        return -1j * k(z) * F1 * np.exp(1j*D*h)
+        return -1j * k(z) * F1 * np.exp(1j*D*z)
     
-    #Here we go, initialize z tracker and calculate first half dispersion step
     rtol = 1e-4
-    atol = 1e-9
+    atol = 1e-4
     
-    Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol, first_step=h)
-    # Integrator = BDF( fnl, z0, A, L, rtol=rtol, atol=atol, first_step=h)
+    Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol )
     
     steps = np.array([])
     while Integrator.status == "running":
-    
-        z_prev = Integrator.t
         Integrator.step()
-        # h = Integrator.step_size
-        
-        
-        # z = np.append( z, Integrator.t )
-        # A = np.append( A, Integrator.y )
-        
         steps = np.append( steps, Integrator.step_size )
         
-    print()
     print( Integrator.status )
-    print()
+    print( )
     
-    A[:] = Integrator.y
-    a = ifft_A()
+    A[:] = Integrator.y * np.exp(-1j*D*Integrator.t)
+    a = fft.ifft(A)
     
     return a, steps
 
 def NEE3(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         h, zcheck_step, z0=0, verbose=True, Kg=0):
-
-    # h = float(h) #in case the input is a single element array
+    '''
+    Adaptive plus QPM approximation. 
+    Providing the poling period allows fast simulation of uniform poling periods.
+    '''
     
     #Get stuff
     NFFT = t.size
@@ -354,12 +336,13 @@ def NEE3(t, x, Omega, f0,
     Xc = np.zeros(M)
     center = A.size // 2 + 1
 
-    z_prev = 0
+    # z_prev = 0
     #Nonlinear function
     def fnl(z, A):
         phi = phi_1 - phi_2*z
         
-        h = z - z_prev
+        # h = z - z_prev
+        h = z
         # print([z_prev*1e6, h*1e6])
         #get fast envelope
         A[:] = A * np.exp(-1j*D*h )
@@ -383,23 +366,16 @@ def NEE3(t, x, Omega, f0,
         return -1j * k(z) * F1 * np.exp(1j*D*h)
     
     #Here we go, initialize z tracker and calculate first half dispersion step
-    rtol = 1e-5
-    atol = 1e-9
+    rtol = 1e-4
+    atol = 1e-6
     
     Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol)
-    # Integrator = BDF( fnl, z0, A, L, rtol=rtol, atol=atol, first_step=h)
     
     steps = np.array([])
     while Integrator.status == "running":
     
-        z_prev = Integrator.t
-        Integrator.step()
-        # h = Integrator.step_size
-        
-        
-        # z = np.append( z, Integrator.t )
-        # A = np.append( A, Integrator.y )
-        
+        # z_prev = Integrator.t
+        Integrator.step()        
         steps = np.append( steps, Integrator.step_size )
         
     print()
