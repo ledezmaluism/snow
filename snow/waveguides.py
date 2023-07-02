@@ -257,7 +257,7 @@ class waveguide:
         omega_ref = 2*pi*f0
         omega_abs = omega_ref + Omega
         
-        def k(z):
+        def k(z): #nonlinear coupling
             if Kg == 0:
                 p = self.poling(z)
             else:
