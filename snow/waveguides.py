@@ -236,7 +236,7 @@ class waveguide:
     
     def propagate_NEE(self, pulse, v_ref=None, 
                          verbose=True, zcheck_step = 0.5e-3,
-                         z0 = 0, T=24.5, Kg=0):
+                         z0 = 0, T=24.5, Kg=0, Qnoise=False):
         #Timer
         tic_total = time.time()
          
@@ -276,11 +276,15 @@ class waveguide:
                           zcheck_step = zcheck_step,
                           z0 = z0,
                           verbose = verbose,
-                          Kg = Kg)
+                          Kg = Kg,
+                          Qnoise = Qnoise)
         
         tdelta = time.time() - tic_total
-        print('Total time = %0.1f s' %(tdelta))
-        print()
+
+        if verbose:
+            print('Total time = %0.1f s' %(tdelta))
+            print()
+            
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         
         return output_pulse, a_evol
