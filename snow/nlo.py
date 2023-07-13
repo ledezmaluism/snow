@@ -3,10 +3,10 @@
 @author: Luis Ledezma
 """
 import numpy as np
-from numpy.fft import fftshift, fft, ifft
+from numpy.fft import fftshift, fft, ifft, fftfreq
 
 import time
-from scipy.constants import pi, c
+from scipy.constants import pi, c, h
 
 from . import pulses
 
@@ -14,11 +14,10 @@ from scipy.integrate import RK45
 
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        zcheck_step, z0=0, verbose=True, Kg=0):
+        zcheck_step, z0=0, verbose=True, Kg=0, Qnoise=False):
     """
     Nonlinear-envelope equation 
     Adaptive solver
-
     """
     #Get stuff
     NFFT = t.size
@@ -26,6 +25,10 @@ def NEE(t, x, Omega, f0,
     f_max = np.amax(Omega_abs) / (2*pi)
     f_min = np.amin(Omega_abs) / (2*pi)
     BW = f_max - f_min
+    Δt = 1/BW
+    f = fftfreq(NFFT, Δt)
+    Δf = f[1] - f[0]
+    f_abs = f + f0
     
     #Calculate upsampling parameter, it usually will be Nup=4,
     #so, throw a warning if it needs to be 8
@@ -33,10 +36,18 @@ def NEE(t, x, Omega, f0,
     if (3*f_max - f_min)/BW > Nup:
         Nup = 8
         print('Warning: large upsampling necessary!')
-    print('Using %ix upsampling.' %(Nup))
+        print('Using %ix upsampling.' %(Nup))
+
+    #Quantum noise
+    if Qnoise:
+        ϕ = np.random.uniform( 0, 2*pi, NFFT )
+        Xnoise = BW * np.sqrt(h*f_abs/2/Δf) * np.exp(1j * ϕ)
+        xnoise = ifft(Xnoise)
+    else:
+        xnoise = np.zeros(NFFT)
 
     #Input signal to frequency domain
-    A = fft(x)
+    A = fft(x + xnoise)
     Aup = np.zeros( Nup*NFFT ) * 1j
     
     tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
@@ -83,9 +94,9 @@ def NEE(t, x, Omega, f0,
     while Integrator.status == "running":
         Integrator.step()
         steps = np.append( steps, Integrator.step_size )
-        
-    print( Integrator.status )
-    print( )
+
+    if verbose:    
+        print( Integrator.status )
     
     A[:] = Integrator.y * np.exp(-1j*D*Integrator.t)
     a = ifft(A)
