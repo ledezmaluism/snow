@@ -4,11 +4,7 @@
 """
 import numpy as np
 from numpy.fft import fftshift, fft, ifft, fftfreq
-
-import time
 from scipy.constants import pi, c, h
-
-from . import pulses
 
 from scipy.integrate import RK45
 
@@ -103,9 +99,6 @@ def NEE(t, x, Omega, f0,
     
     return a, steps
 
-def test1():
-    pass
 
 if __name__ == '__main__':
-    test1()
-    
+    pass
