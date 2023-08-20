@@ -1,6 +1,6 @@
 # snow: Simulator for Nonlinear Optical Waveguides.
 
-<img src="/img/snow-logo-1.png" title="snow" alt="snow">
+<img src="/img/snow-logo-1.png" title="snow" alt="snow" width="100">
 
 ## What is snow?
 
