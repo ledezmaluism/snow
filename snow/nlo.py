@@ -3,14 +3,14 @@
 @author: Luis Ledezma
 """
 import numpy as np
-from numpy.fft import fftshift, fft, ifft, fftfreq
-from scipy.constants import pi, c, h
+from numpy.fft import fft, ifft, fftfreq
+from scipy.constants import pi, h
 
 from scipy.integrate import RK45
 
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        zcheck_step, z0=0, verbose=True, Kg=0, Qnoise=False):
+        z0=0, verbose=True, Kg=0, Qnoise=False):
     """
     Nonlinear-envelope equation 
     Adaptive solver
