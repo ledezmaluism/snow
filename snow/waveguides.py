@@ -273,7 +273,6 @@ class waveguide:
                           b0 = beta_ref, 
                           b1_ref = beta_1_ref, 
                           k = k,
-                          zcheck_step = zcheck_step,
                           z0 = z0,
                           verbose = verbose,
                           Kg = Kg,
