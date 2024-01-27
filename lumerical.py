@@ -297,7 +297,7 @@ class mode():
         Hy = np.squeeze(Hy)
         Hz = np.squeeze(Hz)
         
-        neff = np.float(np.real(MODE.getdata("FDE::data::mode"+str(k), "neff")))
+        neff = float(np.real(MODE.getdata("FDE::data::mode"+str(k), "neff")))
         
         self.E = field_2D(x, y, Ex, Ey, Ez)
         self.H = field_2D(x, y, Hx, Hy, Hz)
