@@ -1,0 +1,14 @@
+[project]
+name = "snow"
+version = "0.1.0"
+description = "Software for nonlinear photonics"
+authors = [
+    {name = "Luis Ledezma, Ph.D.", email = "ledezmaluism@gmail.com"},
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">= 3.8"
+dependencies = [
+    "numpy >= 2.2.2",
+    "matplotlib >= 3.0",
+    ]
