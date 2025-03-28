@@ -75,7 +75,8 @@ def draw_ridge(MODE, material_LN, h_LN, h_etch, w_ridge, theta, wg_length,
     MODE.set("alpha", 0.5)
 
 def draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate, 
-                   h_etch, w_slab, wg_length, x0=0):
+                   h_etch, w_slab, wg_length, x0=0,
+                   material_cladding=None, h_cladding=1.0):
     
     h_LN = float(h_LN)
     h_substrate = float(h_substrate)
@@ -113,6 +114,19 @@ def draw_substrate(MODE, material_LN, material_substrate, h_LN, h_substrate,
     MODE.set("z min", Zmin)
     MODE.set("z max", Zmax)
     MODE.set("alpha", 0.5)
+
+    #Draw cladding
+    if material_cladding is not None:
+        MODE.addrect()
+        MODE.set("name","cladding")
+        MODE.set("material", material_cladding)
+        MODE.set("x", x0)
+        MODE.set("x span", w_slab)
+        MODE.set("y min", h_slab)
+        MODE.set("y max", h_slab + h_cladding)
+        MODE.set("z min", Zmin)
+        MODE.set("z max", Zmax)
+        MODE.set("alpha", 0.5)
     
 def draw_wg(MODE, material_LN, material_substrate, h_LN, h_substrate, h_etch, 
             w_ridge, w_slab, theta, wg_length, x0=0, delete=True):
