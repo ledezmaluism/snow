@@ -416,7 +416,7 @@ def number_of_modes():
     '''
     Returns number of modes supported by a waveguide geometry
     '''
-    pass
+    raise NotImplementedError('This function is not implemented yet')
 
 def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
@@ -475,36 +475,3 @@ def neff_2derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='T
         return neff_derivative(wl, nridge, nbox, nclad, w, h, hslab, mode)
 
     return util.derivative(f, wl, n, wl_step)
-
-def ng():
-    '''
-    Group index
-    '''
-    pass
-
-def gvd():
-    '''
-    GVD
-    '''
-    pass
-
-###############################################################################
-###############################################################################
-def _test_():
-    '''
-    Test function for module  
-    '''
-    wl = 1
-    nridge = 2.2
-    nbox = 1.4
-    hslab = 0.45
-    ne = neff_ridge(wl, nridge, nbox, hslab=hslab)
-    np = neff_derivative(wl,nridge,nbox, hslab=hslab)
-    npp = neff_2derivative(wl,nridge,nbox, hslab=hslab)
-    ng = ne - np
-    print(ng)
-    print(c/ng * 1e-8)
-    print(npp)
-
-if __name__ == '__main__':
-    _test_()
