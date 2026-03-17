@@ -197,7 +197,8 @@ class waveguide:
         for kw in range(wl.size):
             dndl = util.derivative(neff_T, wl[kw], n, wl_step) #Still need to add temp here
             neff = neff_T(wl[kw])
-            b1[kw] = (neff - wl[kw] * dndl)/c
+            val = (neff - wl[kw] * dndl)/c
+            b1[kw] = val.item() if hasattr(val, 'item') else val
         return b1
     
     def beta2(self, wl):
@@ -332,10 +333,10 @@ def neff_symmetric_slab(n0, n1, d, wl, mode='TE even', order=0):
     #Solve for Normalized variables: X=kx*d/2, Y=a*d/2
 
     #Initial condition
-    if mode=='TE even' or 'TM even':
+    if mode in ('TE even', 'TM even'):
         xmin = 0
         xmax = min(R, pi/2*(order+1))
-    elif mode=='TE odd' or 'TM odd':
+    elif mode in ('TE odd', 'TM odd'):
         xmin = pi/2
         xmax = min(R, pi*(order+1))
     else:

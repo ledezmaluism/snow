@@ -193,9 +193,9 @@ class opo:
                 if self.pulsetype == 'sech':
                     pulse = pulses.sech_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
                                               f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Sech pump pulse
-                elif self.pulsetype == 'guass':
-                    pulse = pulses.gassian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                                 f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
+                elif self.pulsetype == 'gauss':
+                    pulse = pulses.gaussian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
+                                                  f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
                 in_pulse = pulse # input pulse for the first roundtrip
                 for ii in range(self.roundtrips):
                     [out_pulse, pulse_evol] = self.crystal.propagate_NEE_fd(in_pulse, self.h,
@@ -210,8 +210,8 @@ class opo:
                         pulse = pulses.sech_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
                                                   f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Sech pump pulse
                     elif self.pulsetype == 'gauss':
-                        pulse = pulses.gassian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                                     f_ref=_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
+                        pulse = pulses.gaussian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
+                                                      f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
                     in_pulse = pulse+recycled_pulse
     
     def plot_3d_spectrum(self, pin_val, ax=None):
