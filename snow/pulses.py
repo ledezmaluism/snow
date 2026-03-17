@@ -350,7 +350,7 @@ class pulse:
         
         #Reference frequency:
         self.wl0 = wavelength 
-        self.f0 = c//wavelength 
+        self.f0 = c/wavelength
         
         #Repetition rate
         self.frep = frep
