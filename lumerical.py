@@ -19,7 +19,7 @@ import time
 
 from scipy.constants import pi, c
 from numpy import abs
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
 
 def draw_ridge(MODE, material_LN, h_LN, h_etch, w_ridge, theta, wg_length, 
@@ -327,7 +327,7 @@ class mode():
         S = self.poynting()
         x = self.E.xx
         y = self.E.yy
-        N = 0.5*simps(simps(S.z, y), x)
+        N = 0.5*simpson(simpson(S.z, x=y), x=x)
         return np.real(N)
 
 class field_2D():
