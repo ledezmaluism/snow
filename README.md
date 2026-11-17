@@ -145,8 +145,6 @@ Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
 The ones most likely to affect results:
 
-- [#41](https://github.com/ledezmaluism/snow/issues/41): `apply_filter` returns
-  the pulse shifted by half a window.
 - [#43](https://github.com/ledezmaluism/snow/issues/43): `gaussian_pulse` and
   `sech_pulse` default to a 0 Hz carrier; always pass `f0`.
 - [#46](https://github.com/ledezmaluism/snow/issues/46): call `set_loss` before
@@ -154,9 +152,15 @@ The ones most likely to affect results:
 - [#50](https://github.com/ledezmaluism/snow/issues/50): explicit square-wave
   poling is not converged by the adaptive solver.
 
-Fixed: [#40](https://github.com/ledezmaluism/snow/issues/40), a mis-spaced
-upsampled time grid in the NEE solver that affected every nonlinear result
-before commit 2c1c17b.
+Fixed:
+
+- [#40](https://github.com/ledezmaluism/snow/issues/40): a mis-spaced
+  upsampled time grid in the NEE solver affected every nonlinear result
+  before commit 2c1c17b.
+- [#41](https://github.com/ledezmaluism/snow/issues/41): `apply_filter` and
+  `filter_signal` returned the pulse shifted by half a window.
+- [#42](https://github.com/ledezmaluism/snow/issues/42): `pulse(...,
+  domain='Freq')` returned the envelope shifted by half a window.
 
 ## References
 

@@ -166,6 +166,33 @@ def test_narrow_off_center_filter_removes_pulse(gauss):
     assert out.energy_td() < 1e-6 * gauss.energy_td()
 
 
+def test_filter_keeps_pulse_position(gauss):
+    # #41: a filter wider than the spectrum must return the pulse unchanged
+    out = gauss.apply_filter(gauss.f0, 100e12)
+    np.testing.assert_allclose(out.a, gauss.a, atol=1e-6 * np.abs(gauss.a).max())
+
+
+def test_filter_keeps_off_center_pulse_in_place(gauss):
+    pulses.add_t_offset(gauss, 0.7 * ps)
+    out = gauss.apply_filter(gauss.f0, 100e12)
+    assert out.time_center() == pytest.approx(gauss.time_center(), abs=1e-3 * fs)
+
+
+def test_butterworth_filter_keeps_pulse_in_place(gauss):
+    # The 15th-order Butterworth is causal, so it delays the pulse by its group
+    # delay (~50 fs here); it must not move it by half the window (2 ps, #41).
+    out = gauss.apply_filter(gauss.f0, 60e12, type="butterworth")
+    assert out.energy_td() > 0.5 * gauss.energy_td()
+    assert abs(out.time_center()) < 0.2 * ps
+
+
+def test_frequency_domain_constructor_round_trip(gauss):
+    # #42: pulse(..., domain='Freq') is the inverse of pulse.A
+    q = pulses.pulse(gauss.t, gauss.A, gauss.wl0, gauss.frep, domain="Freq")
+    np.testing.assert_allclose(q.a, gauss.a, atol=1e-9 * np.abs(gauss.a).max())
+    np.testing.assert_allclose(q.A, gauss.A)
+
+
 def test_ideal_filter_response(gauss):
     _, h = pulses.filter_signal(gauss.f_abs, gauss.A, gauss.f0, 20e12)
     inside = np.abs(gauss.f_abs - gauss.f0) < 10e12
@@ -200,18 +227,6 @@ def test_plots_run(gauss, f_unit):
 
 
 # ---- known bugs -------------------------------------------------------------
-
-@pytest.mark.xfail(strict=True, reason="#41: filter_signal returns ifft(A*h) = fftshift(a): pulse lands at the window edge")
-def test_filter_keeps_pulse_position(gauss):
-    out = gauss.apply_filter(gauss.f0, 100e12)
-    np.testing.assert_allclose(out.a, gauss.a, atol=1e-6 * np.abs(gauss.a).max())
-
-
-@pytest.mark.xfail(strict=True, reason="#42: domain='Freq' sets a = ifft(A) without the fftshift used by update_fd")
-def test_frequency_domain_constructor_round_trip(gauss):
-    q = pulses.pulse(gauss.t, gauss.A, gauss.wl0, gauss.frep, domain="Freq")
-    np.testing.assert_allclose(q.a, gauss.a, atol=1e-9 * np.abs(gauss.a).max())
-
 
 @pytest.mark.xfail(strict=True, reason="#43: gaussian_pulse/sech_pulse default f0=0 means 0 Hz absolute, "
                                        "i.e. a -f_ref carrier offset that aliases on the grid")

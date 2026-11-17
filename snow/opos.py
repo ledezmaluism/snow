@@ -5,8 +5,7 @@ Synchronously pumped optical parametric oscillator (OPO) simulation.
 filter around the degenerate signal, apply cavity dispersion, detuning and
 loss, and add a fresh pump pulse. It sweeps pump power and cavity detuning.
 
-Known issue: the module cannot run at present (#47), and its round-trip
-filter shifts the pulse by half a window (#41). Requires colorcet.
+Known issue: the module cannot run at present (#47). Requires colorcet.
 """
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq

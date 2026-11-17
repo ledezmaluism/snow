@@ -215,8 +215,7 @@ def filter_signal(f_abs, X, f0, bw, type='ideal'):
     Returns
     -------
     filtered : array
-        Time-domain signal. Known issue: it is circularly shifted by half a
-        window relative to `pulse.a` (#41).
+        Time-domain envelope in natural time order, like `pulse.a`.
     h : array
         Filter response on the `f_abs` grid.
     '''
@@ -236,7 +235,9 @@ def filter_signal(f_abs, X, f0, bw, type='ideal'):
         _, h = scipy.signal.sosfreqz(sos, worN = X.size)
         h = fftshift(h)
     
-    filtered = ifft( X * h )             
+    #X follows the pulse.A convention, A = fft(fftshift(a)), so undo the
+    #shift to get the envelope back in natural time order (#41)
+    filtered = fftshift( ifft( X * h ) )
     return filtered, h
 
 def energy_td(t, x):
@@ -434,8 +435,8 @@ class pulse:
     frep : float
         Repetition rate (Hz).
     domain : {'Time', 'Freq'}
-        Meaning of `x`. Known issue: 'Freq' builds `a` without the fftshift
-        used everywhere else (#42); prefer `update_fd`.
+        Meaning of `x`. With 'Freq', `x` is a spectrum in FFT order with the
+        same convention as `pulse.A`.
 
     Attributes
     ----------
@@ -483,7 +484,7 @@ class pulse:
             self.A = fft( fftshift(x), self.NFFT)
         elif domain=='Freq':
             self.A = x
-            self.a = ifft(x, self.NFFT)
+            self.a = fftshift( ifft(x, self.NFFT) ) #inverse of A = fft(fftshift(a)) (#42)
         else:
             print('Wrong domain option. Options are "Time" or "Freq"')
 
@@ -589,8 +590,7 @@ class pulse:
     def apply_filter(self, f0, bw, type='ideal'):
         '''
         New pulse band-pass filtered around absolute frequency f0 with full
-        bandwidth bw (Hz). Known issue: the result is shifted by half a
-        window in time (#41).
+        bandwidth bw (Hz). `type` is 'ideal' or 'butterworth'.
         '''
         f_abs = self.f_abs
         X = self.A
