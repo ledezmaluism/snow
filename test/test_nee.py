@@ -134,7 +134,8 @@ def test_shg_low_conversion_is_quadratic(tutorial_grid):
 @pytest.mark.slow
 def test_shg_regression(tutorial_grid):
     _, out, steps = shg_run(tutorial_grid, 10e-12)
-    assert sh_fraction(out) == pytest.approx(0.8645553674512233, rel=1e-3)
+    # 0.8646 before the NEE upsampled-grid fix
+    assert sh_fraction(out) == pytest.approx(0.8705869926954777, rel=1e-3)
     assert steps.size > 0
 
 
@@ -147,15 +148,12 @@ def test_shg_energy_roughly_conserved(tutorial_grid):
 # ---- known bugs -------------------------------------------------------------
 
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="NEE upsampled grid uses linspace(t[0], t[-1]) instead of "
-                                       "t[0] + k*dt/Nup; energy error is 5e-4 (1e-5 when fixed)")
 def test_shg_energy_conserved_tightly(tutorial_grid):
     p, out, _ = shg_run(tutorial_grid, 10e-12)
     assert out.energy_td() / p.energy_td() == pytest.approx(1.0, abs=1e-4)
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="same NEE grid bug: SH is shifted by ~0.5 frequency bins")
 def test_sh_centered_at_twice_fundamental(tutorial_grid):
     p, out, _ = shg_run(tutorial_grid, 10e-12)
     f_ff = c / (2 * um)

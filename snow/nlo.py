@@ -46,7 +46,9 @@ def NEE(t, x, Omega, f0,
     A = fft(x + xnoise)
     Aup = np.zeros( Nup*NFFT ) * 1j
     
-    tup = np.linspace(t[0], t[-1], Nup*NFFT) #upsampled time
+    #Upsampled time: same start and spacing dt/Nup as the input grid
+    #(linspace(t[0], t[-1]) would stretch the spacing and drift the carrier phase)
+    tup = t[0] + np.arange(Nup*NFFT) * (t[1] - t[0]) / Nup
     phi_1 = 2*pi*f0*tup
     phi_2 = b0 - b1_ref*2*pi*f0 + Kg
     
