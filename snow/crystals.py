@@ -92,7 +92,8 @@ class nonlinear_crystal():
                           verbose = verbose)
 
         tdelta = time.time() - tic_total
-        print('Total time = %0.1f s' %(tdelta))
+        if verbose:
+            print('Total time = %0.1f s' %(tdelta))
 
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         return output_pulse, a_evol

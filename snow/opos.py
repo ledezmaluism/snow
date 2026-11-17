@@ -5,7 +5,9 @@ Synchronously pumped optical parametric oscillator (OPO) simulation.
 filter around the degenerate signal, apply cavity dispersion, detuning and
 loss, and add a fresh pump pulse. It sweeps pump power and cavity detuning.
 
-Known issue: the module cannot run at present (#47). Requires colorcet.
+The crystal model has no transverse normalization (see `crystals`), so the
+chi(2) value sets the gain only up to a scale. colorcet, if installed, gives
+the spectrum plot its colormap.
 """
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
@@ -15,8 +17,13 @@ import math
 from scipy import fftpack as sp
 from scipy import signal
 from matplotlib import cm
-import colorcet as cc
+import warnings
 from matplotlib.colors import Normalize
+try:
+    import colorcet as cc
+    CMAP = cc.cm["rainbow"]
+except ImportError: #optional: only the colormap of plot_3d_spectrum
+    CMAP = 'turbo'
 
 #snow modules
 from . import nlo 
@@ -53,7 +60,7 @@ def get_outenergy(out_full_td, dt, dTs, dT_val, pin_val,
     '''
     pin_index = np.argmin(np.abs(pins-pin_val))
     dT_index = np.argmin(np.abs(dTs-dT_val))
-    ave_energy = np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,pin_index,dT_index,:])],0))
+    ave_energy = np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,pin_index,dT_index,:])],0))*dt
     return ave_energy
 
 def plot_3d_spectrum(out_full_fd, f_abs, pulsetype, dTs, pins,
@@ -68,12 +75,15 @@ def plot_3d_spectrum(out_full_fd, f_abs, pulsetype, dTs, pins,
     f0_ff = f0_sh/2
     wl_array = c/fftshift(f_abs)*1/um
     index = np.argmin(np.abs(pins-pin_val))
-    PSDs = 20*np.log10(np.average(np.abs(out_full_fd[-numsamp:,index,:,:]),0)/np.amax(np.abs(out_full_fd[:,index,:,:])))*dt
+    #spectral power relative to the strongest bin, in dB
+    #(bins zeroed by the round-trip filter give -inf, drawn at vmin)
+    with np.errstate(divide='ignore'):
+        PSDs = 20*np.log10(np.average(np.abs(out_full_fd[-numsamp:,index,:,:]),0)/np.amax(np.abs(out_full_fd[:,index,:,:])))
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    myplot = ax.pcolormesh(wl_array, dTs/fs, PSDs, cmap = cc.cm["rainbow"], vmin=-25, vmax=0)
-    cb = fig.colorbar(myplot, ax=ax)
+    myplot = ax.pcolormesh(wl_array, dTs/fs, PSDs, cmap=CMAP, vmin=-25, vmax=0)
+    cb = ax.figure.colorbar(myplot, ax=ax)
     cb.set_label('Relative PSD (dB)')
     ax.set_xlim(c/(um*(f0_ff+ff_filter_bw/2.5)),c/(um*(f0_ff-ff_filter_bw/2.5)))
     ax.set_xlabel('Wavelength (um)')
@@ -104,13 +114,13 @@ def plot_outpow_inpow(out_full_td, dt, dTs, dT_range,
     '''
     maxind = np.argmin(np.abs(dTs-np.amax(dT_range)))
     minind = np.argmin(np.abs(dTs-np.amin(dT_range)))
-    ave_pows_pin = np.amax(np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,:,minind:maxind,:])],0),2),1)*dt*f_rep
+    ave_pows_pin = np.amax(np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,:,minind:maxind+1,:])],0),2),1)*dt*f_rep
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    ax.scatter(pins, ave_pows_pin/pins*100)
+    ax.scatter(pins, ave_pows_pin)
     ax.set_xlabel('Input Average Power (W)')
-    ax.set_ylabel('Power Conversion Efficiency (%)')
+    ax.set_ylabel('Output Average Power (W)')
     
     return ax
     
@@ -121,13 +131,13 @@ def plot_coneff(out_full_td, dt, dTs, dT_range, pins,
     '''
     maxind = np.argmin(np.abs(dTs-np.amax(dT_range)))
     minind = np.argmin(np.abs(dTs-np.amin(dT_range)))
-    ave_pows_pin = np.amax(np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,:,minind:maxind,:])],0),2),1)*dt*f_rep
+    ave_pows_pin = np.amax(np.sum(np.average([x*x for x in np.abs(out_full_td[-numsamp:,:,minind:maxind+1,:])],0),2),1)*dt*f_rep
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    ax.scatter(pins, ave_pows_pin)
+    ax.scatter(pins, ave_pows_pin/pins*100)
     ax.set_xlabel('Input Average Power (W)')
-    ax.set_ylabel('Output Average Power (W)')
+    ax.set_ylabel('Power Conversion Efficiency (%)')
     
     return ax
     
@@ -154,7 +164,8 @@ class opo:
         Average pump powers to sweep (W).
     f_rep : float
         Repetition rate (Hz).
-    h : unused; it is still passed to the crystal and breaks the run (#47).
+    h : None
+        Deprecated and ignored (step size of the old fixed-step solver).
     v_ref : float or None
         Velocity of the moving frame (m/s).
     pulse_params : list
@@ -180,7 +191,9 @@ class opo:
         
         #reference OPO parameters
         self.crystal = crystal
-        self.h = h
+        if h is not None:
+            warnings.warn('opo: h is ignored (the solver picks its own step) and will be removed',
+                          DeprecationWarning, stacklevel=2)
         self.v_ref = v_ref
         self.feedfunc = feedfunc
         self.outcoupling = outcoupling
@@ -235,29 +248,21 @@ class opo:
             for jj in range(np.size(self.dTs)):
                 dT = self.dTs[jj] # cavity detuning
                 phi = phi_base + 2*pi*dT*self.f_abs
-                if self.pulsetype == 'sech':
-                    pulse = pulses.sech_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                              f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Sech pump pulse
-                elif self.pulsetype == 'gauss':
-                    pulse = pulses.gaussian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                                  f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
-                in_pulse = pulse # input pulse for the first roundtrip
+                make = pulses.sech_pulse if self.pulsetype == 'sech' else pulses.gaussian_pulse
+                def pump():
+                    return make(self.t, FWHM=tau, Ppeak=Ppeak, f_ref=f_ref, f0=f0_sh,
+                                Npwr_dB=Noise_dB, frep=self.f_rep)
+                in_pulse = pump() # input pulse for the first roundtrip
                 for ii in range(self.roundtrips):
-                    [out_pulse, pulse_evol] = self.crystal.propagate_NEE_fd(in_pulse, self.h,
-                                                                            v_ref=self.v_ref)
+                    out_pulse, _ = self.crystal.propagate_NEE_fd(in_pulse, v_ref=self.v_ref,
+                                                                 verbose=False)
                     out_ff, h_ff = pulses.filter_signal(self.f_abs, out_pulse.A, f0_ff,
                                                         ff_filter_bw, type='ideal')
                     feedback_ff = np.fft.ifft(self.feedfunc*np.exp(-1j*phi)*fft(out_ff))
-                    recycled_pulse = pulses.pulse(self.t, feedback_ff, wl_ref)
+                    recycled_pulse = pulses.pulse(self.t, feedback_ff, wl_ref, self.f_rep)
                     self.out_full_td[ii, kk, jj, :] = ifft(self.outcoupling*fft(out_ff))
                     self.out_full_fd[ii, kk, jj, :] = fftshift(self.outcoupling*fft(out_ff))
-                    if self.pulsetype == 'sech':
-                        pulse = pulses.sech_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                                  f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Sech pump pulse
-                    elif self.pulsetype == 'gauss':
-                        pulse = pulses.gaussian_pulse(self.t, FWHM=tau, Ppeak=Ppeak,
-                                                      f_ref=f_ref, f0=f0_sh, Npwr_dB=Noise_dB) #Gaussian pump pulse
-                    in_pulse = pulse+recycled_pulse
+                    in_pulse = pump() + recycled_pulse
     
     def plot_3d_spectrum(self, pin_val, ax=None):
         if (np.size(self.dTs) < 2):

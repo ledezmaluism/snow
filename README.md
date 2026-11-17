@@ -108,7 +108,7 @@ step:
 | `snow.nlo` | `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
 | `snow.util` | Richardson derivative, dB/cm to 1/m conversion |
 | `snow.crystals` | `nonlinear_crystal` for bulk propagation (experimental) |
-| `snow.opos` | `opo` class for synchronously pumped OPOs (currently broken, #47) |
+| `snow.opos` | `opo` class for synchronously pumped degenerate OPOs (experimental; built on `crystals`) |
 | `lumerical.py` | Lumerical MODE geometry and mode-solver scripting, mode overlap helpers |
 
 `crystals` and `opos` are not imported by `import snow`; import them directly.
@@ -145,8 +145,9 @@ error until the marker is removed. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
-The remaining one is
-[#47](https://github.com/ledezmaluism/snow/issues/47): `snow.opos` cannot run.
+There are none open at the moment. One limitation to keep in mind:
+`snow.crystals` (and so `snow.opos`) has no transverse beam normalization, so
+its chi(2) value sets the gain only up to a scale.
 
 Fixed:
 
@@ -165,6 +166,9 @@ Fixed:
   could not run.
 - [#46](https://github.com/ledezmaluism/snow/issues/46): `propagate_NEE`
   needed `set_loss`, and its default `v_ref` ignored the temperature.
+- [#47](https://github.com/ledezmaluism/snow/issues/47): `snow.opos` could not
+  run; `get_outenergy` returned W instead of J, and the output-power and
+  efficiency plots were swapped.
 - [#48](https://github.com/ledezmaluism/snow/issues/48): `LT_SLT` ignored the
   temperature, unknown material names crashed, `Air` returned a scalar.
 - [#49](https://github.com/ledezmaluism/snow/issues/49): the waveguide model

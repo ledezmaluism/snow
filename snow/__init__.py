@@ -13,7 +13,7 @@ Submodules imported with the package:
 Import explicitly when needed:
 
 - snow.crystals: bulk-crystal propagation
-- snow.opos:     synchronously pumped OPO simulation (needs colorcet)
+- snow.opos:     synchronously pumped OPO simulation
 """
 
 from . import materials

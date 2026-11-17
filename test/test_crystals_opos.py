@@ -41,27 +41,91 @@ def test_crystal_nonlinear_smoke(tutorial_grid):
     assert out.energy_td() / p.energy_td() == pytest.approx(1.0, abs=1e-6)
 
 
-# ---- known bugs -------------------------------------------------------------
+# ---- OPO (#47) ---------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="#47: run_opo passes self.h positionally into propagate_NEE_fd "
-                                       "(collides with v_ref) and builds pulses without frep")
-def test_opo_single_roundtrip(tutorial_grid):
-    from snow import opos
-    t, f_ref = tutorial_grid
-    xtal = crystals.nonlinear_crystal(1e-3, n_bulk, chi2=lambda z: 2 * 20e-12)
-    f_sh = c / (1 * um)
-    sim = opos.opo(xtal, phis=[0.0], feedfunc=np.ones(t.size), outcoupling=0.5, t=t,
-                   dTs=np.array([0.0]), pins=np.array([1e-3]), f_rep=250e6, h=None, v_ref=None,
-                   pulse_params=[100 * fs, f_ref, f_sh, 100], roundtrips=1, numsamp=1)
+from scipy.constants import pi
+from snow import opos
+
+F_REP = 250e6
+WL_P = 1 * um  # degenerate OPO: pump at 1 um, signal at 2 um
+
+
+@pytest.fixture
+def opo_grid():
+    f_max, f_min = c / (0.8 * um), c / (3 * um)
+    N = 2 ** 9
+    dt = 1 / (f_max - f_min)
+    return -N * dt / 2 + np.arange(N) * dt, (f_max + f_min) / 2
+
+
+def make_opo(grid, chi2_amp, pins, dTs=(0.0,), roundtrips=15, numsamp=5):
+    t, f_ref = grid
+    # quasi-phase matched for 1 um -> 2 um; smooth grating (first harmonic only)
+    dk = 2 * pi * n_bulk(WL_P) / WL_P - 2 * pi * n_bulk(2 * WL_P) / WL_P
+    xtal = crystals.nonlinear_crystal(1e-3, n_bulk, chi2=lambda z: chi2_amp * np.cos(dk * z))
+    return opos.opo(xtal, phis=[0.0], feedfunc=np.full(t.size, 0.7), outcoupling=0.7, t=t,
+                    dTs=np.array(dTs), pins=np.array(pins), f_rep=F_REP, h=None, v_ref=None,
+                    pulse_params=[100 * fs, f_ref, c / WL_P, 100],
+                    roundtrips=roundtrips, numsamp=numsamp)
+
+
+def test_opo_without_gain_outputs_only_noise(opo_grid):
+    sim = make_opo(opo_grid, 0.0, [0.1], roundtrips=3)
     sim.run_opo()
-    assert sim.get_outpow(0.0, 1e-3) >= 0
+    # the round-trip filter around 2 um removes the 1 um pump
+    assert sim.get_outenergy(0.0, 0.1) < 1e-6 * 0.1 / F_REP
 
 
-@pytest.mark.xfail(strict=True, reason="#47: plot_3d_spectrum uses undefined names dt and fig")
-def test_opo_plot_3d_spectrum():
-    from snow import opos
+@pytest.mark.slow
+def test_opo_threshold(opo_grid):
+    below = make_opo(opo_grid, 1e-3, [1e-3])
+    above = make_opo(opo_grid, 1e-3, [0.1])
+    below.run_opo()
+    above.run_opo()
+    assert below.get_outenergy(0.0, 1e-3) < 1e-5 * 1e-3 / F_REP
+    assert above.get_outenergy(0.0, 0.1) > 1e-2 * 0.1 / F_REP
+    # the output is the degenerate signal at 2 um
+    S = np.mean(np.abs(above.out_full_fd[-5:, 0, 0]) ** 2, axis=0)
+    f = np.fft.fftshift(above.f_abs)
+    assert np.sum(f * S) / np.sum(S) == pytest.approx(c / (2 * WL_P), rel=0.02)
+
+
+def test_opo_outputs_are_consistent(opo_grid):
+    sim = make_opo(opo_grid, 0.0, [0.05, 0.1], dTs=(0.0, 2 * fs), roundtrips=2, numsamp=1)
+    sim.run_opo()
+    assert sim.get_outpow(2 * fs, 0.1) == pytest.approx(sim.get_outenergy(2 * fs, 0.1) * F_REP)
+
+
+def test_opo_plots(opo_grid):
+    import matplotlib.pyplot as plt
+    sim = make_opo(opo_grid, 0.0, [0.05, 0.1], dTs=(0.0, 2 * fs), roundtrips=2, numsamp=1)
+    sim.run_opo()
+    sim.plot_3d_spectrum(0.1)
+    sim.plot_peak_structure(0.1)
+    ax = sim.plot_outpow_inpow(np.array([0.0, 2 * fs]))
+    assert ax.get_ylabel() == "Output Average Power (W)"
+    ax = sim.plot_coneff(np.array([0.0, 2 * fs]))
+    assert ax.get_ylabel() == "Power Conversion Efficiency (%)"
+    eff = ax.collections[0].get_offsets()[:, 1]
+    best = [max(sim.get_outpow(d, p) for d in (0.0, 2 * fs)) for p in (0.05, 0.1)]
+    np.testing.assert_allclose(eff, 100 * np.array(best) / [0.05, 0.1], rtol=1e-5)
+    plt.close("all")
+
+
+def test_opo_h_is_deprecated(opo_grid):
+    t, f_ref = opo_grid
+    xtal = crystals.nonlinear_crystal(1e-3, n_bulk, chi2=lambda z: 0.0)
+    with pytest.deprecated_call():
+        opos.opo(xtal, [0.0], np.ones(t.size), 0.5, t, np.array([0.0]), np.array([1e-3]),
+                 F_REP, 1e-6, None, [100 * fs, f_ref, c / WL_P, 100], roundtrips=1, numsamp=1)
+
+
+def test_opo_plot_3d_spectrum_with_given_axis():
+    import matplotlib.pyplot as plt
     N = 64
     out_fd = np.ones((2, 1, 2, N), complex)
-    f_abs = np.linspace(100e12, 400e12, N)
-    opos.plot_3d_spectrum(out_fd, f_abs, "sech", np.array([0.0, 1e-15]), np.array([1e-3]),
-                          1e-3, 1, 100e-15, 300e12)
+    f_abs = 250e12 + np.fft.fftfreq(N, 1 / 300e12)  # FFT order, like opo.f_abs
+    _, ax = plt.subplots()
+    assert opos.plot_3d_spectrum(out_fd, f_abs, "sech", np.array([0.0, 1e-15]), np.array([1e-3]),
+                                 1e-3, 1, 100e-15, 300e12, ax=ax) is ax
+    plt.close("all")
