@@ -226,10 +226,8 @@ def test_plots_run(gauss, f_unit):
     plt.close("all")
 
 
-# ---- known bugs -------------------------------------------------------------
+# ---- default carrier (#43) ---------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="#43: gaussian_pulse/sech_pulse default f0=0 means 0 Hz absolute, "
-                                       "i.e. a -f_ref carrier offset that aliases on the grid")
 @pytest.mark.parametrize("make", [pulses.gaussian_pulse, pulses.sech_pulse])
 def test_default_center_frequency_is_reference(grid, make):
     t, f_ref = grid
@@ -238,14 +236,45 @@ def test_default_center_frequency_is_reference(grid, make):
     assert np.sum(p.f_abs * S) / np.sum(S) == pytest.approx(f_ref, rel=1e-3)
 
 
-@pytest.mark.xfail(strict=True, reason="#44: width_FWHM returns an array (one entry per peak), not a number")
-def test_width_fwhm_returns_scalar(gauss):
-    w = gauss.width_FWHM()
-    assert np.ndim(w) == 0
+@pytest.mark.parametrize("make", [pulses.gaussian_pulse, pulses.sech_pulse])
+def test_explicit_f0_still_offsets_carrier(grid, make):
+    t, f_ref = grid
+    p = make(t, TAU, f_ref, f0=f_ref + 20e12, Energy=E0, Npwr_dB=QUIET)
+    S = np.abs(p.A)**2
+    assert np.sum(p.f_abs * S) / np.sum(S) == pytest.approx(f_ref + 20e12, rel=1e-3)
+
+
+# ---- width_FWHM and plot_magsq (#44) ----------------------------------------
+
+@pytest.mark.parametrize("make", [pulses.gaussian_pulse, pulses.sech_pulse])
+def test_width_fwhm_returns_scalar(grid, make):
+    t, f_ref = grid
+    p = make(t, TAU, f_ref, Energy=E0, Npwr_dB=QUIET)
+    w = p.width_FWHM()
+    assert isinstance(w, float)
     assert w == pytest.approx(TAU, rel=1e-2)
 
 
-@pytest.mark.xfail(strict=True, reason="#44: pulse.plot_magsq ignores its t_unit argument")
+def test_width_fwhm_independent_of_amplitude(grid):
+    t, f_ref = grid
+    for energy in (1e-15, 1e-9):
+        p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=energy, Npwr_dB=QUIET)
+        assert p.width_FWHM() == pytest.approx(TAU, rel=1e-2)
+
+
+def test_width_fwhm_picks_main_peak(grid):
+    t, f_ref = grid
+    main = pulses.gaussian_pulse(t, TAU, f_ref, Energy=E0, Npwr_dB=QUIET)
+    side = pulses.add_t_offset(pulses.gaussian_pulse(t, 2 * TAU, f_ref, Energy=0.5 * E0, Npwr_dB=QUIET), ps)
+    assert (main + side).width_FWHM() == pytest.approx(TAU, rel=2e-2)
+
+
+def test_width_fwhm_without_peak_is_nan(grid):
+    t, f_ref = grid
+    flat = pulses.pulse(t, np.ones(t.size, complex), c / f_ref, 1e8)
+    assert np.isnan(flat.width_FWHM())
+
+
 def test_plot_magsq_uses_t_unit(gauss):
     import matplotlib.pyplot as plt
     ax = gauss.plot_magsq(t_unit="fs")

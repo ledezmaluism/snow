@@ -129,7 +129,7 @@ def noise(t, Npower):
     x = np.random.normal(scale = sigma, size = t.size) + 1j*np.random.normal(scale = sigma, size = t.size)
     return x
 
-def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
+def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6):
     '''
     Gaussian `pulse` object with additive noise.
 
@@ -144,9 +144,8 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npw
     Energy, Ppeak, Pavg : float, optional
         Give one of: pulse energy (J), peak power (W), or average power (W,
         converted with `frep`). Default 1 pJ.
-    f0 : float
-        Absolute carrier frequency (Hz). Pass it explicitly: the default 0
-        means 0 Hz, not f_ref (#43).
+    f0 : float, optional
+        Absolute carrier frequency (Hz). Default: f_ref.
     Npwr_dB : float, optional
         Noise power below the peak power, in dB (sign is ignored).
     frep : float, optional
@@ -166,7 +165,9 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npw
     else:
         print('Warning: Using default 1pJ of energy for the pulse')
         Energy = 1e-12
-        
+
+    if f0 is None:
+        f0 = f_ref
     x = gaussian(t, Energy, FWHM, f0-f_ref)
     
     Npwr_dB = abs(Npwr_dB)
@@ -174,10 +175,10 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npw
     n = noise(t, Npwr)
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
-def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
+def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6):
     '''
     Sech `pulse` object with additive noise. Same arguments as
-    `gaussian_pulse`; pass `f0` explicitly (#43).
+    `gaussian_pulse`; `f0` defaults to `f_ref`.
     '''
     
     if Energy != None:
@@ -189,7 +190,9 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB
     else:
         print('Warning: Using default 1pJ of energy for the pulse')
         Energy = 1e-12
-        
+
+    if f0 is None:
+        f0 = f_ref
     x = sech(t, Energy, FWHM, f0-f_ref)
     
     Npwr_dB = abs(Npwr_dB)
@@ -550,17 +553,26 @@ class pulse:
 
     def width_FWHM(self, prominence=None):
         '''
-        Intensity FWHM (s). Known issue: returns an array (one entry per peak)
-        and takes the default prominence from the field, not the intensity (#44).
+        Intensity FWHM (s) of the highest peak of |a|^2.
+
+        `prominence` (W) is the minimum peak prominence considered, by
+        default a quarter of the peak power. Returns NaN if no peak is found.
+        Use the module function `FWHM` to get the width of every peak.
         '''
+        I = np.abs(self.a)**2
         if prominence is None:
-            prominence = 0.25*np.amax(self.a)
-        return FWHM(self.t, self.a, prominence=prominence)
+            prominence = 0.25*np.amax(I)
+        peaks, _ = scipy.signal.find_peaks(I, prominence=prominence)
+        if peaks.size == 0:
+            return np.nan
+        main = peaks[np.argmax(I[peaks])]
+        width = scipy.signal.peak_widths(I, [main])[0][0]
+        return float(width*self.dt)
 
     def plot_magsq(self, label='Pulse Intensity (W)', ax=None, t_unit='ps'):
         t = self.t
         x = self.a
-        ax = plot_magsq(t, x, label, ax)
+        ax = plot_magsq(t, x, label, ax, t_unit=t_unit)
         return ax         
 
     def plot_PSD(self, ax=None, f_unit='um', dBm=True):

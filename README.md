@@ -52,7 +52,7 @@ dt = 1/(f_max - f_min)
 t = (np.arange(N) - N//2) * dt
 f_ref = (f_max + f_min)/2
 
-# 100 fs, 1 pJ sech pump at 2 um (always give the carrier f0 explicitly)
+# 100 fs, 1 pJ sech pump with its carrier f0 at 2 um
 pump = pulses.sech_pulse(t, 100e-15, f_ref, f0=c/2e-6, Energy=1e-12, frep=250e6)
 
 # 700 nm MgO:LN film, 350 nm etch, 1.8 um wide, 1 mm long
@@ -145,8 +145,6 @@ Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
 The ones most likely to affect results:
 
-- [#43](https://github.com/ledezmaluism/snow/issues/43): `gaussian_pulse` and
-  `sech_pulse` default to a 0 Hz carrier; always pass `f0`.
 - [#46](https://github.com/ledezmaluism/snow/issues/46): call `set_loss` before
   `propagate_NEE`, and pass `v_ref` when using a temperature.
 - [#50](https://github.com/ledezmaluism/snow/issues/50): explicit square-wave
@@ -161,6 +159,10 @@ Fixed:
   `filter_signal` returned the pulse shifted by half a window.
 - [#42](https://github.com/ledezmaluism/snow/issues/42): `pulse(...,
   domain='Freq')` returned the envelope shifted by half a window.
+- [#43](https://github.com/ledezmaluism/snow/issues/43): `gaussian_pulse` and
+  `sech_pulse` defaulted to a 0 Hz carrier; `f0` now defaults to `f_ref`.
+- [#44](https://github.com/ledezmaluism/snow/issues/44): `width_FWHM` returned
+  an array; `plot_magsq` ignored `t_unit`.
 
 ## References
 
