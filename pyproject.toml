@@ -1,15 +1,35 @@
+[build-system]
+requires = ["setuptools >= 61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "snow"
 version = "0.1.0"
-description = "Software for nonlinear photonics"
+description = "Simulator for Nonlinear Optical Waveguides"
 authors = [
     {name = "Luis Ledezma, Ph.D.", email = "ledezmaluism@gmail.com"},
 ]
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 dependencies = [
     "numpy >= 2.2",
     "matplotlib >= 3.10",
-    "scipy >= 1.15"
-    ]
+    "scipy >= 1.15",
+]
+
+[project.optional-dependencies]
+# colorcet is imported by snow.opos and used by the tutorials
+opo = ["colorcet"]
+tutorials = ["colorcet", "jupyter"]
+test = ["pytest", "colorcet"]
+
+[project.urls]
+Repository = "https://github.com/ledezmaluism/snow"
+Issues = "https://github.com/ledezmaluism/snow/issues"
+
+[tool.setuptools.packages.find]
+include = ["snow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

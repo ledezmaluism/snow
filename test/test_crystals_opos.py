@@ -43,7 +43,7 @@ def test_crystal_nonlinear_smoke(tutorial_grid):
 
 # ---- known bugs -------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="run_opo passes self.h positionally into propagate_NEE_fd "
+@pytest.mark.xfail(strict=True, reason="#47: run_opo passes self.h positionally into propagate_NEE_fd "
                                        "(collides with v_ref) and builds pulses without frep")
 def test_opo_single_roundtrip(tutorial_grid):
     from snow import opos
@@ -57,7 +57,7 @@ def test_opo_single_roundtrip(tutorial_grid):
     assert sim.get_outpow(0.0, 1e-3) >= 0
 
 
-@pytest.mark.xfail(strict=True, reason="plot_3d_spectrum uses undefined names dt and fig")
+@pytest.mark.xfail(strict=True, reason="#47: plot_3d_spectrum uses undefined names dt and fig")
 def test_opo_plot_3d_spectrum():
     from snow import opos
     N = 64

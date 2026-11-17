@@ -83,17 +83,17 @@ def test_sellmeier_single_term():
 
 # ---- known bugs -------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="LT_SLT overwrites the T argument with 25")
+@pytest.mark.xfail(strict=True, reason="#48: LT_SLT overwrites the T argument with 25")
 def test_lt_slt_uses_temperature():
     assert materials.refractive_index("LT_SLT", 1.0, T=100) != materials.refractive_index("LT_SLT", 1.0, T=25)
 
 
-@pytest.mark.xfail(strict=True, reason="unknown material prints a message, then hits UnboundLocalError")
+@pytest.mark.xfail(strict=True, reason="#48: unknown material prints a message, then hits UnboundLocalError")
 def test_unknown_material_raises_value_error():
     with pytest.raises(ValueError):
         materials.refractive_index("Unobtainium", 1.0)
 
 
-@pytest.mark.xfail(strict=True, reason="'Air' returns scalar 1 for array input")
+@pytest.mark.xfail(strict=True, reason="#48: 'Air' returns scalar 1 for array input")
 def test_air_array_input():
     assert np.shape(materials.refractive_index("Air", np.array([1e-6, 2e-6]))) == (2,)

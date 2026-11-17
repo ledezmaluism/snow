@@ -13,6 +13,27 @@ from . import nlo
 from . import pulses
 
 class nonlinear_crystal():
+    '''
+    A bulk crystal (plane-wave propagation).
+
+    Parameters
+    ----------
+    L : float
+        Length (m).
+    n_func : callable
+        n_func(wl) returns the refractive index at wavelength(s) wl (m),
+        e.g. ``lambda wl: materials.refractive_index('LN_MgO_e', wl)``.
+    chi2 : callable
+        chi2(z) returns the chi(2) coefficient (m/V) at position z,
+        including the poling sign.
+    alpha : float
+        Power attenuation coefficient (1/m).
+
+    The coupling is k = chi2(z) omega / (4 n c). Note that it multiplies a
+    field normalised to sqrt(W), with no beam-area normalization, so
+    physical chi(2) values give negligible conversion; the bulk model is
+    unfinished.
+    '''
 
     def __init__(self, L, n_func, chi2, alpha=0):
         self.L = L
@@ -22,6 +43,12 @@ class nonlinear_crystal():
 
     def propagate_NEE_fd(self, pulse, v_ref=None,
                          verbose=True, z0=0):
+        '''
+        Propagate a pulse through the crystal with `nlo.NEE`.
+
+        v_ref defaults to the group velocity at the first FFT bin (the
+        reference frequency). Returns (output pulse, integrator step sizes).
+        '''
 
         #Timer
         tic_total = time.time()

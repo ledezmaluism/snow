@@ -166,7 +166,7 @@ def test_sh_centered_at_twice_fundamental(tutorial_grid):
     assert abs(c_sh - 2 * c_ff) < 0.25 * out.df
 
 
-@pytest.mark.xfail(strict=True, reason="propagate_NEE reads self.alpha, which only set_loss creates")
+@pytest.mark.xfail(strict=True, reason="#46: propagate_NEE reads self.alpha, which only set_loss creates")
 def test_propagate_without_set_loss(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = make_ext_waveguide()
@@ -177,7 +177,7 @@ def test_propagate_without_set_loss(tutorial_grid):
     wg.propagate_NEE(p, verbose=False)
 
 
-@pytest.mark.xfail(strict=True, reason="propagate_NEE computes the default v_ref at T=24.5, ignoring T")
+@pytest.mark.xfail(strict=True, reason="#46: propagate_NEE computes the default v_ref at T=24.5, ignoring T")
 def test_default_v_ref_uses_temperature(tutorial_grid, monkeypatch):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-4)

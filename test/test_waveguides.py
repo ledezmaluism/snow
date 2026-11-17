@@ -191,17 +191,17 @@ def test_behavioral_default_wl_f0_is_midpoint():
 
 # ---- known bugs -------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="neff_ridge only implements TE; TM hits UnboundLocalError")
+@pytest.mark.xfail(strict=True, reason="#49: neff_ridge only implements TE; TM hits UnboundLocalError")
 def test_tm_mode():
     assert waveguides.waveguide().neff(1e-6, mode="TM")[0] > 1.44
 
 
-@pytest.mark.xfail(strict=True, reason="full etch gives a zero-thickness slab and the solver returns NaN")
+@pytest.mark.xfail(strict=True, reason="#49: full etch gives a zero-thickness slab and the solver returns NaN")
 def test_full_etch():
     assert waveguides.waveguide(h_etch=700e-9).neff(1e-6)[0] > 1.44
 
 
-@pytest.mark.xfail(strict=True, reason="symmetric slab root bracket is wrong for order >= 1")
+@pytest.mark.xfail(strict=True, reason="#49: symmetric slab root bracket is wrong for order >= 1")
 def test_symmetric_slab_higher_order():
     n0, n1, d, wl = 1.0, 2.2, 2 * um, 1 * um
     te0 = waveguides.neff_symmetric_slab(n0, n1, d, wl, "TE even", order=0)
@@ -209,7 +209,7 @@ def test_symmetric_slab_higher_order():
     assert n0 < te2 < te0
 
 
-@pytest.mark.xfail(strict=True, reason="propagate_linear multiplies by the method self.beta and omits frep")
+@pytest.mark.xfail(strict=True, reason="#45: propagate_linear multiplies by the method self.beta and omits frep")
 def test_propagate_linear(grid):
     from snow import pulses
     t, f_ref = grid

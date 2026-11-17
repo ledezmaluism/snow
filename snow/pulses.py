@@ -1,5 +1,18 @@
 # -*- coding: utf-8 -*-
 """
+Optical pulses on a discrete time/frequency grid.
+
+Conventions (see docs/physics.md):
+
+- `t` is a uniform time grid centred on t = 0, in seconds.
+- `pulse.a` is the complex envelope in sqrt(W), so |a|^2 is power in W.
+- `pulse.A = fft(fftshift(a))` is the spectrum with its time origin at t = 0
+  (a transform-limited pulse has flat spectral phase). It is in FFT order:
+  `pulse.f = fftfreq(N, dt)` are frequencies relative to the reference
+  `pulse.f0`, and `pulse.f_abs = f + f0` are absolute frequencies.
+- Energies are in J, PSDs in W/Hz (or dBm/Hz), using the repetition rate
+  `frep` to convert pulse energy to average power.
+
 @author: Luis Ledezma
 """
 import numpy as np
@@ -52,27 +65,32 @@ def coherence_g1(pulse_train):
     return g
 
 def average_g1(x, g1):
+    '''
+    Spectrally averaged coherence: g1 weighted by the energy spectral
+    density of the time-domain field `x`.
+    '''
     Xesd = np.abs( fft(x) )**2
     return np.sum( g1 * Xesd ) / np.sum( Xesd ) 
 
 def gaussian(t, Energy, FWHM, f0=0):
     '''
+    Gaussian envelope, |a|^2 = Ppeak exp(-4 ln2 (t/FWHM)^2).
+
     Parameters
     ----------
-    t : ARRAY
-        TIME ARRAY.
-    Energy : FLOAT
-        PULSE ENERGY.
-    FWHM : FLOAT
-        PULSE WIDTH.
-    f0 : FLOAT
-        CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
+    t : array
+        Time grid (s).
+    Energy : float
+        Pulse energy (J). Ppeak = 0.94 Energy / FWHM.
+    FWHM : float
+        Intensity full width at half maximum (s).
+    f0 : float, optional
+        Carrier frequency offset from the grid's reference frequency (Hz).
 
     Returns
     -------
-    TYPE
-        AMPLITUDE ARRAY.
-
+    array
+        Complex envelope in sqrt(W).
     '''
     Ppeak = 0.94*Energy/FWHM
     x = np.sqrt(Ppeak) * np.exp(-2*np.log(2)*(t/FWHM)**2)
@@ -80,34 +98,63 @@ def gaussian(t, Energy, FWHM, f0=0):
 
 def sech(t, Energy, FWHM, f0=0):
     '''
+    Sech envelope, |a|^2 = Ppeak sech^2(1.76 t/FWHM).
+
     Parameters
     ----------
-    t : ARRAY
-        TIME ARRAY.
-    Energy : FLOAT
-        PULSE ENERGY.
-    FWHM : FLOAT
-        PULSE WIDTH.
-    f0 : FLOAT
-        CENTER FREQUENCY (OFFSET FOURIER DOMAIN).
+    t : array
+        Time grid (s).
+    Energy : float
+        Pulse energy (J). Ppeak = 0.88 Energy / FWHM.
+    FWHM : float
+        Intensity full width at half maximum (s).
+    f0 : float, optional
+        Carrier frequency offset from the grid's reference frequency (Hz).
 
     Returns
     -------
-    TYPE
-        AMPLITUDE ARRAY.
+    array
+        Complex envelope in sqrt(W).
     '''
     Ppeak = 0.88*Energy/FWHM
     x = np.sqrt(Ppeak) / np.cosh( 1.76 * t/ FWHM )
     return x * np.exp(1j*2*pi*f0*t)
 
 def noise(t, Npower):
+    '''
+    Complex white Gaussian noise with mean power `Npower` (W) per sample.
+    Uses numpy's global random generator (seed it for reproducible runs).
+    '''
     sigma = np.sqrt(Npower) / np.sqrt(2)
     x = np.random.normal(scale = sigma, size = t.size) + 1j*np.random.normal(scale = sigma, size = t.size)
     return x
 
 def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
     '''
-    Generates a gaussian pulse with noise with a given Energy or peak power
+    Gaussian `pulse` object with additive noise.
+
+    Parameters
+    ----------
+    t : array
+        Time grid (s), centred on 0.
+    FWHM : float
+        Intensity FWHM (s).
+    f_ref : float
+        Reference frequency of the grid (Hz); becomes `pulse.f0`.
+    Energy, Ppeak, Pavg : float, optional
+        Give one of: pulse energy (J), peak power (W), or average power (W,
+        converted with `frep`). Default 1 pJ.
+    f0 : float
+        Absolute carrier frequency (Hz). Pass it explicitly: the default 0
+        means 0 Hz, not f_ref (#43).
+    Npwr_dB : float, optional
+        Noise power below the peak power, in dB (sign is ignored).
+    frep : float, optional
+        Repetition rate (Hz), used for average powers and PSDs.
+
+    Returns
+    -------
+    pulse
     '''
     
     if Energy != None:
@@ -129,7 +176,8 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npw
 
 def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB=100, frep=250e6):
     '''
-    Generates a sech pulse with noise with a given Energy or peak power
+    Sech `pulse` object with additive noise. Same arguments as
+    `gaussian_pulse`; pass `f0` explicitly (#43).
     '''
     
     if Energy != None:
@@ -150,7 +198,28 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=0, Npwr_dB
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
 def filter_signal(f_abs, X, f0, bw, type='ideal'):
-    #Input in is the frequency domain already
+    '''
+    Band-pass filter a spectrum.
+
+    Parameters
+    ----------
+    f_abs : array
+        Absolute frequencies of `X` (Hz), FFT order.
+    X : array
+        Spectrum to filter (e.g. `pulse.A`).
+    f0, bw : float
+        Centre frequency and full bandwidth of the pass band (Hz).
+    type : {'ideal', 'butterworth'}
+        Brick-wall filter, or a 15th-order Butterworth band pass.
+
+    Returns
+    -------
+    filtered : array
+        Time-domain signal. Known issue: it is circularly shifted by half a
+        window relative to `pulse.a` (#41).
+    h : array
+        Filter response on the `f_abs` grid.
+    '''
     
     if type == 'ideal':
         f1 = f0 - bw/2
@@ -171,14 +240,14 @@ def filter_signal(f_abs, X, f0, bw, type='ideal'):
     return filtered, h
 
 def energy_td(t, x):
-    'Output in Joules'
+    'Pulse energy (J) integrated in the time domain, sum |x|^2 dt.'
     dt = t[1] - t[0]
     pwr = abs(x)**2
     energy = np.sum(pwr)*dt
     return energy
 
 def energy_fd(t, x):
-    'Output in Joules'
+    'Pulse energy (J) integrated in the frequency domain (equals energy_td by Parseval).'
     dt = t[1] - t[0]
     f = fftfreq(t.size, dt)
     df = f[1]-f[0]
@@ -187,11 +256,16 @@ def energy_fd(t, x):
     return energy
 
 def pulse_center(t, x):
+    'Intensity-weighted mean time (s).'
     dt = t[1] - t[0]
     I = abs(x)**2
     return np.sum(t*I*dt)/np.sum(I*dt)
 
 def FWHM(t, x, prominence=1):
+    '''
+    Intensity FWHM (s) of every peak of |x|^2 with at least `prominence` (W).
+    Returns an array with one width per peak found.
+    '''
     dt = t[1]-t[0] #Sample spacing
     x2 = abs(x)**2 #Intensity
     peaks = scipy.signal.find_peaks(x2, prominence=prominence)
@@ -200,20 +274,20 @@ def FWHM(t, x, prominence=1):
     return fwhm
 
 def get_spectrum(t, x):
-    'This gets the spectrum in units J/Hz = W/Hz/Hz'
+    'Energy spectral density |X(f)|^2 in J/Hz, FFT order.'
     dt = t[1]-t[0] #Sample spacing
     X = fft(x)
     Xmag = abs(X)*dt
     return Xmag**2
 
 def get_psd(t, x, frep):
-    'The output is in W/Hz'
+    'Power spectral density (W/Hz) of a pulse train at repetition rate frep.'
     Xw = get_spectrum(t, x)
     psd = Xw * frep
     return psd
 
 def get_psd_dBm(t, x, frep):
-    'The output is in dBm/Hz'
+    'Power spectral density in dBm/Hz.'
     Xpsd = get_psd(t, x, frep)
     Xpsd_dBm = 10*np.log10(Xpsd) + 30
     return Xpsd_dBm
@@ -291,12 +365,18 @@ def plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
  
   
 def plot_magsq(t, x, label='Pulse Intensity (W)', ax=None, t_unit='ps'):
+    '''Plot |x|^2 versus time; t_unit is 'fs', 'ps' or 'ns'. Returns the axis.'''
     x2 = abs(x)**2
     ax = plot_vs_time(t, x2, ylabel=label, ax=ax, t_unit=t_unit)
     
     return ax
         
 def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
+    '''
+    Plot the PSD versus wavelength ('um', 'nm') or frequency ('GHz', 'THz',
+    'PHz'), in dBm/Hz or W/Hz. `f0` is the grid's reference frequency.
+    Returns the axis.
+    '''
     
     dt = t[1] - t[0]
     f = fftfreq(t.size, dt) + f0
@@ -316,12 +396,20 @@ def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
     return ax
     
 def add_t_offset(pulse, t_offset):
+    '''
+    Shift a pulse in time by applying a linear spectral phase, in place.
+    Note the sign: a positive `t_offset` moves the pulse to earlier (negative)
+    time. Returns the same pulse object.
+    '''
     p_spec = pulse.A
     p_spec = np.multiply(p_spec,np.exp(1j*t_offset*pulse.Omega))
     pulse.update_fd(p_spec)
     return pulse
 
 def phase(x, unwrap=True, threshold=1e-3):
+    '''
+    Phase of `x` (rad), NaN where |x| is below `threshold` times its peak.
+    '''
     xpeak = np.amax(np.abs(x))
     xnorm = x/xpeak
     p = np.ones( xnorm.size ) * np.nan
@@ -332,6 +420,36 @@ def phase(x, unwrap=True, threshold=1e-3):
     return p
 
 class pulse:
+    '''
+    A pulse on a time/frequency grid.
+
+    Parameters
+    ----------
+    t : array
+        Uniform time grid (s), centred on 0.
+    x : array
+        Envelope in sqrt(W) (domain='Time') or its spectrum (domain='Freq').
+    wavelength : float
+        Reference wavelength of the grid (m); sets f0 = c/wavelength.
+    frep : float
+        Repetition rate (Hz).
+    domain : {'Time', 'Freq'}
+        Meaning of `x`. Known issue: 'Freq' builds `a` without the fftshift
+        used everywhere else (#42); prefer `update_fd`.
+
+    Attributes
+    ----------
+    a, A : array
+        Envelope (time order) and spectrum (FFT order), A = fft(fftshift(a)).
+    t, dt, NFFT : time grid, spacing and number of points.
+    f, Omega, df : relative frequencies (Hz), angular frequencies, spacing.
+    f0, wl0 : reference frequency and wavelength.
+    f_abs, wl : absolute frequencies and wavelengths, FFT order.
+    frep : repetition rate.
+
+    Pulses can be added, and multiplied by scalars or by other pulses
+    (point-wise in time).
+    '''
     def __init__(self, t, x, wavelength, frep, domain='Time'):
 
         if not 50e-9 <= wavelength <= 20e-6:
@@ -388,6 +506,7 @@ class pulse:
         return self.__mul__(x)
     
     def update_td(self, a):
+        '''Replace the time-domain envelope and recompute the spectrum.'''
         if np.size(self.t) == np.size(a):
             self.a = a
             self.A = fft( fftshift(a), self.NFFT)
@@ -395,6 +514,7 @@ class pulse:
             raise RuntimeError('Hmm, this pulse seems different. Cannot update.')
 
     def update_fd(self, A):
+        '''Replace the spectrum (FFT order) and recompute the envelope.'''
         if np.size(self.t) == np.size(A):
             self.A = A
             self.a = fftshift( ifft(A, self.NFFT) )
@@ -418,6 +538,7 @@ class pulse:
         return get_psd_dBm(self.t, self.a, self.frep)
     
     def spectrum(self, res):
+        '''Power (dBm) in a resolution bandwidth `res` (Hz), like an OSA trace.'''
         # rbw = c/(self.wl**2)*res #to frequency
         rbw = res
         spectrum = 10*np.log10( self.get_psd()*rbw ) + 30 #to dBm
@@ -427,6 +548,10 @@ class pulse:
         return pulse_center(self.t, self.a)
 
     def width_FWHM(self, prominence=None):
+        '''
+        Intensity FWHM (s). Known issue: returns an array (one entry per peak)
+        and takes the default prominence from the field, not the intensity (#44).
+        '''
         if prominence is None:
             prominence = 0.25*np.amax(self.a)
         return FWHM(self.t, self.a, prominence=prominence)
@@ -462,6 +587,11 @@ class pulse:
         return ax
     
     def apply_filter(self, f0, bw, type='ideal'):
+        '''
+        New pulse band-pass filtered around absolute frequency f0 with full
+        bandwidth bw (Hz). Known issue: the result is shifted by half a
+        window in time (#41).
+        '''
         f_abs = self.f_abs
         X = self.A
         filtered, h = filter_signal(f_abs, X, f0, bw, type=type)

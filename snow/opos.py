@@ -1,3 +1,13 @@
+"""
+Synchronously pumped optical parametric oscillator (OPO) simulation.
+
+`opo` runs many round trips of: propagate through a `nonlinear_crystal`,
+filter around the degenerate signal, apply cavity dispersion, detuning and
+loss, and add a fresh pump pulse. It sweeps pump power and cavity detuning.
+
+Known issue: the module cannot run at present (#47), and its round-trip
+filter shifts the pulse by half a window (#41). Requires colorcet.
+"""
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
@@ -9,7 +19,7 @@ from matplotlib import cm
 import colorcet as cc
 from matplotlib.colors import Normalize
 
-#This are my libraries
+#snow modules
 from . import nlo 
 from . import pulses
 from . import materials
@@ -123,6 +133,41 @@ def plot_coneff(out_full_td, dt, dTs, dT_range, pins,
     return ax
     
 class opo:
+    '''
+    Degenerate synchronously pumped OPO.
+
+    Parameters
+    ----------
+    crystal : crystals.nonlinear_crystal
+        Gain medium.
+    phis : list of float
+        Cavity dispersion [GDD, TOD, 4OD, ...] (s^2, s^3, ...), about the
+        signal frequency f0_sh/2.
+    feedfunc : array
+        Frequency-dependent field feedback (FFT order).
+    outcoupling : float or array
+        Field fraction sent to the output.
+    t : array
+        Time grid (s).
+    dTs : array
+        Cavity detunings to sweep (s).
+    pins : array
+        Average pump powers to sweep (W).
+    f_rep : float
+        Repetition rate (Hz).
+    h : unused; it is still passed to the crystal and breaks the run (#47).
+    v_ref : float or None
+        Velocity of the moving frame (m/s).
+    pulse_params : list
+        [FWHM (s), f_ref (Hz), pump frequency f0_sh (Hz), noise level (dB)].
+    pulsetype : {'sech', 'gauss'}
+    roundtrips : int
+    numsamp : int
+        Number of final round trips averaged for outputs and plots.
+
+    Results are stored in `out_full_td` and `out_full_fd`, indexed
+    [roundtrip, pump power, detuning, sample].
+    '''
     def __init__(self, crystal, phis, feedfunc, outcoupling, t,
                  dTs, pins, f_rep, h, v_ref, pulse_params,
                  pulsetype='sech', roundtrips=100, numsamp=20):
@@ -168,6 +213,7 @@ class opo:
                                    np.size(t)), dtype=np.complex64)
     
     def run_opo(self):
+        '''Run all round trips for every pump power and detuning.'''
         tau = self.pulse_params[0]
         if self.pulsetype == 'sech':
             ff_filter_bw = 7*0.315/tau

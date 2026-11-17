@@ -201,19 +201,19 @@ def test_plots_run(gauss, f_unit):
 
 # ---- known bugs -------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="filter_signal returns ifft(A*h) = fftshift(a): pulse lands at the window edge")
+@pytest.mark.xfail(strict=True, reason="#41: filter_signal returns ifft(A*h) = fftshift(a): pulse lands at the window edge")
 def test_filter_keeps_pulse_position(gauss):
     out = gauss.apply_filter(gauss.f0, 100e12)
     np.testing.assert_allclose(out.a, gauss.a, atol=1e-6 * np.abs(gauss.a).max())
 
 
-@pytest.mark.xfail(strict=True, reason="domain='Freq' sets a = ifft(A) without the fftshift used by update_fd")
+@pytest.mark.xfail(strict=True, reason="#42: domain='Freq' sets a = ifft(A) without the fftshift used by update_fd")
 def test_frequency_domain_constructor_round_trip(gauss):
     q = pulses.pulse(gauss.t, gauss.A, gauss.wl0, gauss.frep, domain="Freq")
     np.testing.assert_allclose(q.a, gauss.a, atol=1e-9 * np.abs(gauss.a).max())
 
 
-@pytest.mark.xfail(strict=True, reason="gaussian_pulse/sech_pulse default f0=0 means 0 Hz absolute, "
+@pytest.mark.xfail(strict=True, reason="#43: gaussian_pulse/sech_pulse default f0=0 means 0 Hz absolute, "
                                        "i.e. a -f_ref carrier offset that aliases on the grid")
 @pytest.mark.parametrize("make", [pulses.gaussian_pulse, pulses.sech_pulse])
 def test_default_center_frequency_is_reference(grid, make):
@@ -223,14 +223,14 @@ def test_default_center_frequency_is_reference(grid, make):
     assert np.sum(p.f_abs * S) / np.sum(S) == pytest.approx(f_ref, rel=1e-3)
 
 
-@pytest.mark.xfail(strict=True, reason="width_FWHM returns an array (one entry per peak), not a number")
+@pytest.mark.xfail(strict=True, reason="#44: width_FWHM returns an array (one entry per peak), not a number")
 def test_width_fwhm_returns_scalar(gauss):
     w = gauss.width_FWHM()
     assert np.ndim(w) == 0
     assert w == pytest.approx(TAU, rel=1e-2)
 
 
-@pytest.mark.xfail(strict=True, reason="pulse.plot_magsq ignores its t_unit argument")
+@pytest.mark.xfail(strict=True, reason="#44: pulse.plot_magsq ignores its t_unit argument")
 def test_plot_magsq_uses_t_unit(gauss):
     import matplotlib.pyplot as plt
     ax = gauss.plot_magsq(t_unit="fs")

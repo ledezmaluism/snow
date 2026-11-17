@@ -1,8 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jul  1 16:07:22 2020
+snow: Simulator for Nonlinear Optical Waveguides.
 
-@author: luish
+Submodules imported with the package:
+
+- materials:  bulk refractive indices (Sellmeier models)
+- waveguides: ridge-waveguide dispersion and pulse propagation
+- pulses:     pulses on a time/frequency grid, analysis and plotting
+- nlo:        the chi(2) nonlinear envelope equation solver
+- util:       numerical helpers
+
+Import explicitly when needed:
+
+- snow.crystals: bulk-crystal propagation
+- snow.opos:     synchronously pumped OPO simulation (needs colorcet)
 """
 
 from . import materials

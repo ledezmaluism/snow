@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug 15 08:57:17 2019
-@author: Luis Ledezma
+Ridge waveguides: effective index, dispersion and pulse propagation.
 
-Module to calculate waveguide parameters semi-analytically
-(using mainly the effective index method)
+The `waveguide` class gives n_eff(wl) from one of three models (geometry via
+the effective index method, a "behavioral" dispersion polynomial, or an
+interpolated table), derives beta, beta1 and beta2 from it, and propagates
+pulses with the chi(2) nonlinear envelope equation (`propagate_NEE`).
+
+The module-level functions solve the slab problems used by the effective
+index method. All lengths are in meters.
+
+@author: Luis Ledezma
 """
 
 import numpy as np
@@ -20,6 +26,41 @@ from . import nlo
 from . import pulses
 
 class waveguide:
+    '''
+    A ridge waveguide (by default thin-film MgO:LN on SiO2, air cladding).
+
+    The effective index model is chosen at construction:
+
+    - default: geometry, solved with the effective index method (TE only, #49);
+    - ``behavioral=True``: a dispersion polynomial set directly by its
+      zero-GVD wavelength, GVM, index difference and index (see
+      `neff_behavioral`);
+    - ``external=True``: a cubic spline through (wl_array, n_array), e.g.
+      from a mode solver.
+
+    Parameters
+    ----------
+    w_top : float
+        Ridge top width (m).
+    h_thinfilm : float
+        Thin-film thickness (m).
+    h_etch : float
+        Etch depth (m); the slab is h_thinfilm - h_etch thick.
+    theta : float
+        Sidewall angle (degrees from horizontal). The effective index method
+        uses the mean of the top and base widths.
+    tf_material, box_material, clad_material : str
+        Names accepted by `materials.refractive_index`.
+    behavioral : bool
+        Use the behavioral model with z_wl, wl_1, wl_2, GVM, delta_n, n_f0,
+        wl_f0 and c1.
+    external : bool
+        Interpolate `n_array` versus `wl_array` (m).
+
+    Before propagating, set the length, loss and nonlinearity with
+    `set_length`, `set_loss` (required, #46), `add_poling` and
+    `set_nonlinear_coeffs`.
+    '''
 
     def __init__(self, w_top=1e-6, h_thinfilm=700e-9, h_etch=350e-9, theta=60,
                  tf_material = 'LN_MgO_e',
@@ -70,6 +111,11 @@ class waveguide:
             self.h_slab = h_thinfilm - h_etch
         
     def neff_physical(self, wl, mode='TE', T=24.5):
+        '''
+        Effective index of the fundamental TE-like mode from the geometry
+        (effective index method), at wavelength(s) wl (m) and temperature T (C).
+        Always returns an array.
+        '''
         um = 1e-6
         w = (self.w_top + self.w_base)/2
         h = self.h_thinfilm
@@ -99,35 +145,34 @@ class waveguide:
     #     self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
     
     def neff_interp(self, wl, T=25):
+        '''Effective index from the spline of the external table (T is ignored).'''
         return interpolate.splev(wl, self.tck, der=0)
     
     def neff_behavioral(self, wl, T=None):
         '''
-        This method is equivalent to "neff_physical", but instead of using 
-        the physical waveguide parameters to calculate the behavior of the 
-        waveguide, it defines the behavior directly 
-        (so it defines a black box model of the waveguide)
+        Effective index of a "black box" waveguide defined by its dispersion
+        rather than its geometry.
+
+        The GVD is the quadratic beta2(omega) = c1 (omega - z1)(omega - z2),
+        which is integrated to beta1, beta and n_eff. The free constants are
+        fixed by the constructor arguments:
+
+        - z_wl: zero-GVD wavelength (sets z1);
+        - wl_1, wl_2, GVM: beta1(wl_2) - beta1(wl_1) = GVM (s/m), sets z2;
+        - delta_n: n(wl_2) - n(wl_1);
+        - n_f0, wl_f0: n(wl_f0) = n_f0 (wl_f0 defaults to (wl_1 + wl_2)/2);
+        - c1: curvature of beta2 (s^4/m).
+
         Parameters
         ----------
-        wl : TYPE
-            Wavelength array
-        z_wl : TYPE
-            Zero GVD wavelength
-        wl_1 : TYPE
-            First wavelegnth for GVM calculation
-        wl_2 : TYPE
-            Second wavelegnth for GVM calculation
-        GVM : TYPE, optional
-            GVM between wl_1 and wl_2. The default is 0.
-        n_ff : TYPE, optional
-            Refractive index at wl_ff. The default is 2.0.
-        wl_ff : TYPE, optional
-            Fundamental frequency for refractive index. The default is None.
+        wl : float or array
+            Wavelength (m).
+        T : ignored
 
         Returns
         -------
-        Waveguide object.
-
+        float or array
+            Effective index.
         '''          
         z_wl = self.beh_z_wl
         wl_1 = self.beh_wl_1
@@ -174,16 +219,26 @@ class waveguide:
         return n
         
     def set_length(self, L):
+        '''Waveguide length (m).'''
         self.L = L
         
     def set_loss(self, alpha):
+        '''
+        Power attenuation coefficient alpha (1/m): power decays as
+        exp(-alpha z). Use `util.absorption_coeff` to convert from dB/cm.
+        '''
         self.alpha = alpha
     
     def beta(self, wl, T=24.5):
+        '''Propagation constant 2 pi n_eff / wl (1/m).'''
         beta = 2 * pi * self.neff(wl, T=T) / wl
         return beta
     
     def beta1(self, wl, T=24.5):
+        '''
+        Inverse group velocity d beta/d omega = (n - wl dn/dwl)/c (s/m),
+        from a Richardson-extrapolated derivative. Returns an array.
+        '''
         
         if np.isscalar(wl):
             wl = np.asarray([wl])
@@ -202,6 +257,10 @@ class waveguide:
         return b1
     
     def beta2(self, wl):
+        '''
+        Group velocity dispersion d^2 beta/d omega^2 (s^2/m), at room
+        temperature. Also available as `waveguide.GVD`. Returns an array.
+        '''
         if np.isscalar(wl):
             wl = np.asarray([wl])
         n = 2 #number of extrapolation levels
@@ -213,6 +272,10 @@ class waveguide:
         return gvd
     
     def propagate_linear(self, pulse):
+        '''
+        Linear propagation. Currently broken (#45); use `propagate_NEE` with
+        zero nonlinear coefficient instead.
+        '''
         t = pulse.t
         x = pulse.a
         wl_ref= pulse.wl0
@@ -224,20 +287,60 @@ class waveguide:
     
     def add_poling(self, poling):
         '''
-        Adds poling function to waveguide. Poling is a function of z
+        Set the poling function d(z), the sign of chi(2) at position z (m),
+        e.g. ``lambda z: np.sign(np.cos(2*pi*z/period))``.
         '''
         self.poling = poling
         
     def set_nonlinear_coeffs(self, N, X0):
+        '''
+        Nonlinear coupling: k(z, omega) = d(z) X0 omega / (4 N).
+
+        X0 is the effective chi(2) (m/V) and N the mode normalization that
+        makes |a|^2 the power; together they absorb the mode overlap.
+        '''
         self.N = N
         self.X0 = X0
         
     def nonlinear_coupling(self, z):
+        '''d(z) X0 / (4 N), without the omega factor.'''
         return self.poling(z) * self.X0 / (4*self.N)
     
     def propagate_NEE(self, pulse, v_ref=None, 
                          verbose=True, zcheck_step = 0.5e-3,
                          z0 = 0, T=24.5, Kg=0, Qnoise=False):
+        '''
+        Propagate a pulse through the waveguide with the chi(2) nonlinear
+        envelope equation (`nlo.NEE`).
+
+        Parameters
+        ----------
+        pulse : pulses.pulse
+            Input pulse; its grid defines the simulation grid.
+        v_ref : float, optional
+            Velocity of the moving frame (m/s). Default: group velocity at
+            the pulse's reference wavelength (computed at 24.5 C, #46).
+            Use 1/beta1(wl) to keep a given wavelength stationary.
+        verbose : bool
+            Print the integrator status and run time.
+        zcheck_step : unused, kept for compatibility (#46).
+        z0 : float
+            Start position (m), for the poling function.
+        T : float
+            Temperature (C) used for beta.
+        Kg : float
+            Grating wavevector (1/m). If nonzero, the poling function is
+            replaced by its first Fourier coefficient 2/pi and the grating
+            enters the phase instead (much faster for long devices).
+        Qnoise : bool
+            Add vacuum noise to the input (half a photon per bin).
+
+        Returns
+        -------
+        output_pulse : pulses.pulse
+        steps : array
+            Integrator step sizes (m), not the field evolution.
+        '''
         #Timer
         tic_total = time.time()
          
@@ -321,6 +424,8 @@ def symmetric_slab_equations(X, n0, n1, d, wl, mode):
 
 def neff_symmetric_slab(n0, n1, d, wl, mode='TE even', order=0):
     '''
+    Effective index of a symmetric slab mode. Only order=0 works (#49).
+
     n0: cladding index 
     n1: slab index 
     d: slab thickness
@@ -371,6 +476,8 @@ def asymmetric_slab_eqs(x, n0, n1, n2, d, wl, mode='TE', order=0):
 
 def neff_asymmetric_slab(n0, n1, n2, d, wl, mode='TE', order=0):
     '''
+    Effective index of an asymmetric slab mode.
+
     n0: cladding index 
     n1: slab index 
     n2: lower cladding index
@@ -421,7 +528,13 @@ def number_of_modes():
 
 def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
-    Returns neff based on the effective index method
+    Effective index of a ridge with the effective index method.
+
+    The ridge region (thickness h) and the slab regions (thickness hslab)
+    are each solved as asymmetric TE slabs (cladding / film / box); their
+    indices then form a symmetric slab of width w solved for its TM-like
+    mode (the lateral field of a TE ridge mode). Only mode='TE' is
+    implemented (#49). Lengths in meters.
     '''
     if mode=='TE':
         neff_slab_te0 = neff_asymmetric_slab(nclad, nridge, nbox, hslab, wl)

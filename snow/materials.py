@@ -1,23 +1,31 @@
 """
+Bulk refractive indices.
+
+`refractive_index(material, wl, T)` is the single entry point. Wavelengths may
+be given in meters, nanometers or microns; the unit is guessed from the value.
+
 @author: Luis Ledezma
 """
 import numpy as np
 
 def sellmeier(A, B, wl):
     '''
+    Sellmeier expansion n^2 = 1 + sum_k A_k wl^2 / (wl^2 - B_k).
+
     Parameters
     ----------
-    A : ARRAY
-        Ak coefficients
-    B : ARRAY
-        Bk coefficients
-    wl : SCALAR
-        Wavelegnth.
+    A : array
+        A_k coefficients (dimensionless).
+    B : array
+        B_k coefficients, in the square of the units of `wl`.
+    wl : float or array
+        Wavelength, in the units the coefficients were fitted for (microns
+        for every material in this module).
 
     Returns
     -------
-    Refractive index from Sellmeiers expansion
-
+    float or array
+        Refractive index.
     '''
     n2 = 1
 
@@ -27,24 +35,53 @@ def sellmeier(A, B, wl):
     return np.sqrt(n2)
 
 def poly_LT(A, wl):
+    '''
+    Polynomial dispersion formula used for MgO:LT,
+    n^2 = A0 + A1 wl^2 + A2/wl^2 + A3/wl^4 + A4/wl^6, with wl in microns.
+    '''
     n2 =  A[0] + A[1]*wl**2 + A[2]/wl**2 + A[3]/wl**4 + A[4]/wl**6
     return np.sqrt(n2)
 
 def refractive_index(material, wl, T=24.5):
     '''
+    Refractive index of a bulk material.
+
     Parameters
     ----------
-    material : STRING
-        'SiO2', 'Sapphire', 'LN_MgO_o', 'LN_MgO_e', 'LN_o', 'LN_e', 'GaP'
-    wl : SCALAR
-        Wavelength
-    T : SCALAR
-        Temperature
+    material : str
+        One of:
+
+        ============== ====================================================
+        'SiO2'         fused silica (Malitson 1965)
+        'Sapphire'     Al2O3, extraordinary (Malitson)
+        'LN_e', 'LN_o' congruent LiNbO3 (Zelmon 1997)
+        'LN_MgO_e',    5% MgO:LiNbO3 (Zelmon 1997)
+        'LN_MgO_o'
+        'LN_MgO_e_T',  5% MgO:LiNbO3, temperature dependent
+        'LN_MgO_o_T'   (Gayer et al. 2008, Appl. Phys. B 91, 343)
+        'LT_MgO_e'     MgO:LiTaO3, extraordinary
+        'LT_SLT'       stoichiometric LiTaO3 (Brunner et al. 2003)
+        'GaP'          gallium phosphide
+        'Air'          n = 1
+        ============== ====================================================
+
+    wl : float or array
+        Wavelength in m, nm or um. The unit is inferred from the (first)
+        value: 100 nm - 20 um in meters, 100 - 20000 in nm, 0.1 - 20 in um.
+    T : float, optional
+        Temperature in Celsius. Only used by the '_T' models (default 24.5).
 
     Returns
     -------
-    Refractive index at given wavelength
+    float or array
+        Refractive index at `wl`.
 
+    Notes
+    -----
+    Known issues: 'LT_SLT' ignores `T`, an unknown name raises
+    UnboundLocalError, and 'Air' returns a scalar for array input (#48).
+    The Gayer model's absolute dn/dT is about 6x larger than Jundt's 1997
+    congruent-LN model; phase-matching temperatures are what it was fitted to.
     '''
     
     #Let's check for the right units
