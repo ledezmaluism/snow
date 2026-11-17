@@ -15,6 +15,7 @@ index method. All lengths are in meters.
 
 import numpy as np
 import time
+import warnings
 from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
@@ -58,8 +59,8 @@ class waveguide:
         Interpolate `n_array` versus `wl_array` (m).
 
     Before propagating, set the length, loss and nonlinearity with
-    `set_length`, `set_loss` (required, #46), `add_poling` and
-    `set_nonlinear_coeffs`.
+    `set_length`, `add_poling` and `set_nonlinear_coeffs`, and optionally
+    `set_loss` (lossless by default).
     '''
 
     def __init__(self, w_top=1e-6, h_thinfilm=700e-9, h_etch=350e-9, theta=60,
@@ -75,6 +76,7 @@ class waveguide:
 
         
         self.GVD = self.beta2
+        self.alpha = 0 #lossless until set_loss is called
         
         if behavioral:
             self.neff = self.neff_behavioral
@@ -271,18 +273,44 @@ class waveguide:
             gvd[kw] = - wl[kw]**2 / (2*pi*c) * db1dl
         return gvd
     
-    def propagate_linear(self, pulse):
+    def _linear_operator(self, pulse, v_ref=None, T=24.5):
         '''
-        Linear propagation. Currently broken (#45); use `propagate_NEE` with
-        zero nonlinear coefficient instead.
+        Dispersion operator in the moving frame, shared by the propagators:
+        D = beta - beta_ref - Omega/v_ref - i alpha/2 (1/m).
+        Returns (D, beta_ref, v_ref).
         '''
-        t = pulse.t
-        x = pulse.a
-        wl_ref= pulse.wl0
-        
-        x = x * np.exp(-self.alpha*self.L) * np.exp(-1j * self.beta * self.L)
-        
-        output_pulse = pulses.pulse(t, x, wl_ref)
+        beta = self.beta(pulse.wl, T=T)
+        if v_ref is None:
+            #group velocity at the reference wavelength only (pulse.wl[0])
+            v_ref = 1/self.beta1(pulse.wl0, T=T)[0]
+        beta_ref = beta[0]
+        D = beta - beta_ref - pulse.Omega/v_ref - 1j*self.alpha/2
+        return D, beta_ref, v_ref
+
+    def propagate_linear(self, pulse, v_ref=None, T=24.5):
+        '''
+        Propagate a pulse through the waveguide with dispersion and loss only.
+
+        Uses the same moving frame and conventions as `propagate_NEE`, so for
+        a zero nonlinear coefficient both give the same output. The phase
+        beta_ref*L of the reference frequency is dropped, as in the NEE.
+
+        Parameters
+        ----------
+        pulse : pulses.pulse
+        v_ref : float, optional
+            Velocity of the moving frame (m/s). Default: group velocity at
+            the pulse's reference wavelength and temperature T.
+        T : float
+            Temperature (C).
+
+        Returns
+        -------
+        pulses.pulse
+        '''
+        D, _, _ = self._linear_operator(pulse, v_ref=v_ref, T=T)
+        output_pulse = pulses.pulse(pulse.t, pulse.a, pulse.wl0, pulse.frep)
+        output_pulse.update_fd(pulse.A * np.exp(-1j*D*self.L))
         return output_pulse
     
     def add_poling(self, poling):
@@ -307,7 +335,7 @@ class waveguide:
         return self.poling(z) * self.X0 / (4*self.N)
     
     def propagate_NEE(self, pulse, v_ref=None, 
-                         verbose=True, zcheck_step = 0.5e-3,
+                         verbose=True, zcheck_step=None,
                          z0 = 0, T=24.5, Kg=0, Qnoise=False):
         '''
         Propagate a pulse through the waveguide with the chi(2) nonlinear
@@ -319,11 +347,12 @@ class waveguide:
             Input pulse; its grid defines the simulation grid.
         v_ref : float, optional
             Velocity of the moving frame (m/s). Default: group velocity at
-            the pulse's reference wavelength (computed at 24.5 C, #46).
-            Use 1/beta1(wl) to keep a given wavelength stationary.
+            the pulse's reference wavelength and temperature T.
+            Use 1/beta1(wl)[0] to keep a given wavelength stationary.
         verbose : bool
             Print the integrator status and run time.
-        zcheck_step : unused, kept for compatibility (#46).
+        zcheck_step : deprecated and ignored (left from the fixed-step
+            solver); passing it raises a DeprecationWarning.
         z0 : float
             Start position (m), for the poling function.
         T : float
@@ -341,6 +370,10 @@ class waveguide:
         steps : array
             Integrator step sizes (m), not the field evolution.
         '''
+        if zcheck_step is not None:
+            warnings.warn('zcheck_step is ignored and will be removed',
+                          DeprecationWarning, stacklevel=2)
+
         #Timer
         tic_total = time.time()
          
@@ -348,15 +381,8 @@ class waveguide:
         f0 = pulse.f0
         Omega  = pulse.Omega
         
-        beta = self.beta( pulse.wl, T=T)
-
-        if v_ref == None:
-            vg = 1/self.beta1( pulse.wl )
-            v_ref = vg[0]
-        
-        beta_ref = beta[0]
+        D, beta_ref, v_ref = self._linear_operator(pulse, v_ref=v_ref, T=T)
         beta_1_ref = 1/v_ref
-        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
 
         omega_ref = 2*pi*f0
         omega_abs = omega_ref + Omega

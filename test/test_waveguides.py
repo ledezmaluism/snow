@@ -209,13 +209,52 @@ def test_symmetric_slab_higher_order():
     assert n0 < te2 < te0
 
 
-@pytest.mark.xfail(strict=True, reason="#45: propagate_linear multiplies by the method self.beta and omits frep")
-def test_propagate_linear(grid):
+# ---- linear propagation (#45) -----------------------------------------------
+
+def test_propagate_linear_conserves_energy(grid):
     from snow import pulses
     t, f_ref = grid
-    p = pulses.gaussian_pulse(t, 100e-15, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
+    p = pulses.gaussian_pulse(t, 100e-15, f_ref, Energy=1e-12, Npwr_dB=300)
     wg = make_ext_waveguide()
     wg.set_length(1e-3)
-    wg.set_loss(0)
     out = wg.propagate_linear(p)
     assert out.energy_td() == pytest.approx(p.energy_td(), rel=1e-9)
+    assert out.frep == p.frep
+
+
+def test_propagate_linear_loss(grid):
+    from snow import pulses, util
+    t, f_ref = grid
+    p = pulses.gaussian_pulse(t, 100e-15, f_ref, Energy=1e-12, Npwr_dB=300)
+    wg = make_ext_waveguide()
+    wg.set_length(10e-3)
+    wg.set_loss(util.absorption_coeff(1.0))
+    assert wg.propagate_linear(p).energy_td() / p.energy_td() == pytest.approx(0.1**0.1, rel=1e-9)
+
+
+@pytest.mark.parametrize("v_ref_wl", [None, 1.5e-6])
+def test_propagate_linear_matches_nee_without_nonlinearity(tutorial_grid, v_ref_wl):
+    from snow import pulses
+    t, f_ref = tutorial_grid
+    p = pulses.gaussian_pulse(t, 100e-15, f_ref, f0=c / (1.2 * um), Energy=1e-12, Npwr_dB=300)
+    wg = make_ext_waveguide()
+    wg.set_length(2e-3)
+    wg.set_loss(5.0)
+    wg.add_poling(lambda z: 1.0)
+    wg.set_nonlinear_coeffs(N=1, X0=0.0)
+    v_ref = None if v_ref_wl is None else 1 / wg.beta1(v_ref_wl)[0]
+    lin = wg.propagate_linear(p, v_ref=v_ref)
+    nee, _ = wg.propagate_NEE(p, v_ref=v_ref, verbose=False)
+    np.testing.assert_allclose(lin.a, nee.a, atol=1e-6 * np.abs(p.a).max())
+
+
+def test_propagate_linear_gvd_broadening(tutorial_grid):
+    from snow import pulses
+    t, f_ref = tutorial_grid
+    tau, wl = 100e-15, 1 * um
+    wg = make_ext_waveguide()
+    LD = tau**2 / (4 * np.log(2) * wg.beta2(wl)[0])
+    wg.set_length(LD)
+    p = pulses.gaussian_pulse(t, tau, f_ref, f0=c / wl, Energy=1e-12, Npwr_dB=300)
+    out = wg.propagate_linear(p, v_ref=1 / wg.beta1(wl)[0])
+    assert out.width_FWHM() == pytest.approx(np.sqrt(2) * p.width_FWHM(), rel=0.02)

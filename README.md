@@ -145,8 +145,6 @@ Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
 The ones most likely to affect results:
 
-- [#46](https://github.com/ledezmaluism/snow/issues/46): call `set_loss` before
-  `propagate_NEE`, and pass `v_ref` when using a temperature.
 - [#50](https://github.com/ledezmaluism/snow/issues/50): explicit square-wave
   poling is not converged by the adaptive solver.
 
@@ -163,6 +161,10 @@ Fixed:
   `sech_pulse` defaulted to a 0 Hz carrier; `f0` now defaults to `f_ref`.
 - [#44](https://github.com/ledezmaluism/snow/issues/44): `width_FWHM` returned
   an array; `plot_magsq` ignored `t_unit`.
+- [#45](https://github.com/ledezmaluism/snow/issues/45): `propagate_linear`
+  could not run.
+- [#46](https://github.com/ledezmaluism/snow/issues/46): `propagate_NEE`
+  needed `set_loss`, and its default `v_ref` ignored the temperature.
 
 ## References
 

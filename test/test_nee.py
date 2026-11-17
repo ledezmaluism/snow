@@ -166,19 +166,29 @@ def test_sh_centered_at_twice_fundamental(tutorial_grid):
     assert abs(c_sh - 2 * c_ff) < 0.25 * out.df
 
 
-@pytest.mark.xfail(strict=True, reason="#46: propagate_NEE reads self.alpha, which only set_loss creates")
-def test_propagate_without_set_loss(tutorial_grid):
+# ---- #46 ---------------------------------------------------------------------
+
+def test_propagate_without_set_loss_is_lossless(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = make_ext_waveguide()
     wg.set_length(1e-3)
     wg.add_poling(lambda z: 1.0)
     wg.set_nonlinear_coeffs(N=1, X0=0.0)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
-    wg.propagate_NEE(p, verbose=False)
+    out, _ = wg.propagate_NEE(p, verbose=False)
+    assert out.energy_td() == pytest.approx(p.energy_td(), rel=1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason="#46: propagate_NEE computes the default v_ref at T=24.5, ignoring T")
+def test_zcheck_step_is_deprecated(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-4)
+    p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
+    with pytest.deprecated_call():
+        wg.propagate_NEE(p, verbose=False, zcheck_step=1e-3)
+
+
 def test_default_v_ref_uses_temperature(tutorial_grid, monkeypatch):
+    # beta1 must be evaluated once, at the reference wavelength and at T
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-4)
     seen = []
