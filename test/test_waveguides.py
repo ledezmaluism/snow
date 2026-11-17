@@ -189,24 +189,86 @@ def test_behavioral_default_wl_f0_is_midpoint():
     assert wg.neff(1.5e-6) == pytest.approx(2.1, rel=1e-12)
 
 
-# ---- known bugs -------------------------------------------------------------
+# ---- #49: TM, full etch, higher-order slab modes ----------------------------
 
-@pytest.mark.xfail(strict=True, reason="#49: neff_ridge only implements TE; TM hits UnboundLocalError")
 def test_tm_mode():
-    assert waveguides.waveguide().neff(1e-6, mode="TM")[0] > 1.44
+    te = waveguides.waveguide().neff(1e-6)[0]
+    tm = waveguides.waveguide().neff(1e-6, mode="TM")[0]
+    n_box = materials.refractive_index("SiO2", 1.0)
+    # thin film on SiO2 with air above: the TM-like mode is less confined
+    assert n_box < tm < te
 
 
-@pytest.mark.xfail(strict=True, reason="#49: full etch gives a zero-thickness slab and the solver returns NaN")
-def test_full_etch():
-    assert waveguides.waveguide(h_etch=700e-9).neff(1e-6)[0] > 1.44
+def test_tm_waveguide_option():
+    wg = waveguides.waveguide(mode="TM")
+    assert wg.neff(1e-6)[0] == waveguides.waveguide().neff(1e-6, mode="TM")[0]
+    assert wg.beta1(1e-6)[0] > 0
 
 
-@pytest.mark.xfail(strict=True, reason="#49: symmetric slab root bracket is wrong for order >= 1")
-def test_symmetric_slab_higher_order():
+def test_invalid_mode_raises():
+    with pytest.raises(ValueError):
+        waveguides.waveguide(mode="TEM")
+    with pytest.raises(ValueError):
+        waveguides.neff_ridge(1e-6, 2.1, mode="TEM")
+
+
+def test_ridge_tm_uses_tm_vertical_and_te_lateral_slabs():
+    wl, n_film, n_box, n_clad = 1e-6, 2.2, 1.44, 1.0
+    w, h, hslab = 1.5e-6, 0.7e-6, 0.3e-6
+    n_r = waveguides.neff_asymmetric_slab(n_clad, n_film, n_box, h, wl, "TM")
+    n_s = waveguides.neff_asymmetric_slab(n_clad, n_film, n_box, hslab, wl, "TM")
+    expected = waveguides.neff_symmetric_slab(n_s, n_r, w, wl, "TE even")
+    assert waveguides.neff_ridge(wl, n_film, n_box, n_clad, w, h, hslab, "TM") == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("mode", ["TE", "TM"])
+def test_full_etch(mode):
+    n_box = materials.refractive_index("SiO2", 1.0)
+    # vertical sidewalls, so the etch depth does not change the mean width
+    full = waveguides.waveguide(h_etch=700e-9, theta=90, mode=mode).neff(1e-6)[0]
+    partial = waveguides.waveguide(h_etch=450e-9, theta=90, mode=mode).neff(1e-6)[0]
+    assert n_box < full < partial
+    # a 2 nm slab guides nothing either: continuous with the full etch
+    near = waveguides.waveguide(h_etch=698e-9, theta=90, mode=mode).neff(1e-6)[0]
+    assert near == pytest.approx(full, rel=1e-12)
+
+
+def test_slab_below_cutoff_uses_cladding_index():
+    # a 5 nm slab guides no mode at 2 um; the slab region gets the box index
+    n_box = 1.44
+    assert waveguides._slab_index(1.0, 2.2, n_box, 5e-9, 2e-6, "TE") == n_box
+    assert waveguides._slab_index(1.0, 2.2, n_box, 0.0, 2e-6, "TE") == n_box
+    guided = waveguides._slab_index(1.0, 2.2, n_box, 0.5e-6, 2e-6, "TE")
+    assert guided == waveguides.neff_asymmetric_slab(1.0, 2.2, n_box, 0.5e-6, 2e-6)
+
+
+@pytest.mark.parametrize("parity, order", [("even", 1), ("even", 2), ("odd", 1)])
+@pytest.mark.parametrize("pol", ["TE", "TM"])
+def test_symmetric_slab_higher_order_dispersion_relation(pol, parity, order):
     n0, n1, d, wl = 1.0, 2.2, 2 * um, 1 * um
-    te0 = waveguides.neff_symmetric_slab(n0, n1, d, wl, "TE even", order=0)
-    te2 = waveguides.neff_symmetric_slab(n0, n1, d, wl, "TE even", order=1)
-    assert n0 < te2 < te0
+    neff = waveguides.neff_symmetric_slab(n0, n1, d, wl, f"{pol} {parity}", order=order)
+    kx = k0(wl) * np.sqrt(n1**2 - neff**2)
+    gamma = k0(wl) * np.sqrt(neff**2 - n0**2)
+    X = kx * d / 2
+    f = np.tan(X) if parity == "even" else -1 / np.tan(X)
+    pol_factor = (n0 / n1)**2 if pol == "TM" else 1.0
+    assert pol_factor * kx * f == pytest.approx(gamma, rel=1e-8)
+    # mode number 2*order (+1 for odd): X lies in its own branch
+    m = 2 * order + (parity == "odd")
+    assert m * pi / 2 <= X < (m + 1) * pi / 2
+
+
+def test_symmetric_slab_modes_are_ordered():
+    n0, n1, d, wl = 1.0, 2.2, 2 * um, 1 * um
+    modes = [waveguides.neff_symmetric_slab(n0, n1, d, wl, f"TE {p}", order=m)
+             for m in range(3) for p in ("even", "odd")]
+    assert np.all(np.diff(modes) < 0)
+    assert modes[-1] > n0
+
+
+def test_symmetric_slab_cutoff_raises():
+    with pytest.raises(ValueError, match="cut off"):
+        waveguides.neff_symmetric_slab(1.0, 2.2, 0.2 * um, 1 * um, "TE odd")
 
 
 # ---- linear propagation (#45) -----------------------------------------------

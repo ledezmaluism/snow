@@ -69,7 +69,8 @@ def refractive_index(material, wl, T=24.5):
         Wavelength in m, nm or um. The unit is inferred from the (first)
         value: 100 nm - 20 um in meters, 100 - 20000 in nm, 0.1 - 20 in um.
     T : float, optional
-        Temperature in Celsius. Only used by the '_T' models (default 24.5).
+        Temperature in Celsius, used by the '_T' models and 'LT_SLT'
+        (default 24.5).
 
     Returns
     -------
@@ -78,8 +79,7 @@ def refractive_index(material, wl, T=24.5):
 
     Notes
     -----
-    Known issues: 'LT_SLT' ignores `T`, an unknown name raises
-    UnboundLocalError, and 'Air' returns a scalar for array input (#48).
+    An unknown material name raises ValueError.
     The Gayer model's absolute dn/dT is about 6x larger than Jundt's 1997
     congruent-LN model; phase-matching temperatures are what it was fitted to.
     '''
@@ -181,15 +181,14 @@ def refractive_index(material, wl, T=24.5):
         F = 0.199595
         G = 0.001
         H = 7.99724
-        T = 25
         b = 3.483933e-8*(T+273.15)**2
         c = 1.607839e-8*(T+273.15)**2
         n2 = A + (B+b)/(wl**2 - (C+c)**2) + E/(wl**2 - F**2) + G/(wl**2-H**2) + D*wl**2
         n = np.sqrt(n2)
     elif material=='Air':
-        n = 1
+        n = 1 if np.isscalar(wl) else np.ones(np.shape(wl))
     else:
-        print('wrong material...?')
+        raise ValueError(f'unknown material {material!r}')
 
     return n
 

@@ -32,7 +32,8 @@ class waveguide:
 
     The effective index model is chosen at construction:
 
-    - default: geometry, solved with the effective index method (TE only, #49);
+    - default: geometry, solved with the effective index method for the
+      fundamental TE-like or TM-like mode (`mode`);
     - ``behavioral=True``: a dispersion polynomial set directly by its
       zero-GVD wavelength, GVM, index difference and index (see
       `neff_behavioral`);
@@ -57,6 +58,10 @@ class waveguide:
         wl_f0 and c1.
     external : bool
         Interpolate `n_array` versus `wl_array` (m).
+    mode : {'TE', 'TM'}
+        Polarization of the fundamental mode for the geometric model. With
+        an anisotropic film, choose `tf_material` for the index along the
+        field (e.g. 'LN_MgO_e' for TE in x-cut, 'LN_MgO_o' for TM).
 
     Before propagating, set the length, loss and nonlinearity with
     `set_length`, `add_poling` and `set_nonlinear_coeffs`, and optionally
@@ -70,8 +75,12 @@ class waveguide:
                  behavioral = False,
                  z_wl=1e-6, wl_1=1e-6, wl_2=2e-6, GVM=0, delta_n=0.2, n_f0=2.0, wl_f0=None, c1=10**(-55),
                  external = False,
-                 wl_array = np.array([1e-6]), n_array=np.array([1.0]) 
+                 wl_array = np.array([1e-6]), n_array=np.array([1.0]),
+                 mode = 'TE'
                  ):
+        if mode not in ('TE', 'TM'):
+            raise ValueError(f"mode must be 'TE' or 'TM', not {mode!r}")
+        self.mode = mode
         
 
         
@@ -112,12 +121,15 @@ class waveguide:
             self.w_base = w_base
             self.h_slab = h_thinfilm - h_etch
         
-    def neff_physical(self, wl, mode='TE', T=24.5):
+    def neff_physical(self, wl, mode=None, T=24.5):
         '''
-        Effective index of the fundamental TE-like mode from the geometry
-        (effective index method), at wavelength(s) wl (m) and temperature T (C).
+        Effective index of the fundamental TE-like or TM-like mode from the
+        geometry (effective index method), at wavelength(s) wl (m) and
+        temperature T (C). `mode` defaults to the waveguide's `mode`.
         Always returns an array.
         '''
+        if mode is None:
+            mode = self.mode
         um = 1e-6
         w = (self.w_top + self.w_base)/2
         h = self.h_thinfilm
@@ -450,28 +462,34 @@ def symmetric_slab_equations(X, n0, n1, d, wl, mode):
 
 def neff_symmetric_slab(n0, n1, d, wl, mode='TE even', order=0):
     '''
-    Effective index of a symmetric slab mode. Only order=0 works (#49).
+    Effective index of a symmetric slab mode.
 
     n0: cladding index 
     n1: slab index 
     d: slab thickness
     wl: wavelength
     mode: desired mode 'TE even', 'TE odd', 'TM even', 'TM odd'
-    order: mode number integer
+    order: index m among modes of that parity (m = 0 is the lowest). The
+        m-th even mode is TE_2m / TM_2m, the m-th odd mode TE_2m+1 / TM_2m+1.
+
+    Raises ValueError if the mode is cut off.
     '''
     k0 = 2*pi/wl #wavevector
     R = np.sqrt((k0*d/2)**2*(n1**2-n0**2))
     #Solve for Normalized variables: X=kx*d/2, Y=a*d/2
 
-    #Initial condition
+    #Root bracket: X tan X = Y has one root in [m pi, m pi + pi/2),
+    #-X cot X = Y one root in [m pi + pi/2, (m+1) pi)
     if mode in ('TE even', 'TM even'):
-        xmin = 0
-        xmax = min(R, pi/2*(order+1))
+        xmin = order*pi
+        xmax = min(R, order*pi + pi/2)
     elif mode in ('TE odd', 'TM odd'):
-        xmin = pi/2
-        xmax = min(R, pi*(order+1))
+        xmin = order*pi + pi/2
+        xmax = min(R, (order+1)*pi)
     else:
-        print('Wrong mode selection....?')
+        raise ValueError(f"unknown mode {mode!r}")
+    if R <= xmin:
+        raise ValueError(f"{mode} mode of order {order} is cut off")
 
     #Solve equations
     X = brentq(symmetric_slab_equations, xmin, xmax, (n0, n1, d, wl, mode))
@@ -557,17 +575,46 @@ def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     Effective index of a ridge with the effective index method.
 
     The ridge region (thickness h) and the slab regions (thickness hslab)
-    are each solved as asymmetric TE slabs (cladding / film / box); their
-    indices then form a symmetric slab of width w solved for its TM-like
-    mode (the lateral field of a TE ridge mode). Only mode='TE' is
-    implemented (#49). Lengths in meters.
+    are each solved as asymmetric slabs (cladding / film / box); their
+    indices then form a symmetric slab of width w, solved for its
+    fundamental even mode.
+
+    - mode='TE' (field mostly horizontal): TE vertical slabs, then the
+      lateral slab is solved as TM.
+    - mode='TM' (field mostly vertical): TM vertical slabs, then the
+      lateral slab is solved as TE. For an anisotropic film, pass the index
+      along the field direction as `nridge`.
+
+    A slab region with no guided mode (fully etched, hslab = 0, or below
+    cut-off) is given the larger cladding index, max(nbox, nclad).
+    Lengths in meters.
     '''
-    if mode=='TE':
-        neff_slab_te0 = neff_asymmetric_slab(nclad, nridge, nbox, hslab, wl)
-        neff_ridge_te0 = neff_asymmetric_slab(nclad, nridge, nbox, h, wl)
-        neff = neff_symmetric_slab(neff_slab_te0, neff_ridge_te0, w, wl, 'TM even')
-        # neff = neff_asymmetric_slab(neff_slab_te0, neff_ridge_te0, neff_slab_te0, w, wl, 'TM even')
-    return neff
+    if mode == 'TE':
+        vertical, lateral = 'TE', 'TM even'
+    elif mode == 'TM':
+        vertical, lateral = 'TM', 'TE even'
+    else:
+        raise ValueError(f"mode must be 'TE' or 'TM', not {mode!r}")
+
+    n_ridge = _slab_index(nclad, nridge, nbox, h, wl, vertical)
+    n_slab = _slab_index(nclad, nridge, nbox, hslab, wl, vertical)
+    return neff_symmetric_slab(n_slab, n_ridge, w, wl, lateral)
+
+def _slab_index(n0, n1, n2, d, wl, mode):
+    '''
+    Fundamental-mode index of an asymmetric slab, or max(n0, n2) when the
+    slab is absent or guides no mode.
+    '''
+    n_sub = max(n0, n2)
+    if d <= 0:
+        return n_sub
+    #The fundamental mode exists if the dispersion function changes sign
+    #inside the bracket used by neff_asymmetric_slab
+    k0 = 2*pi/wl
+    xmax = min(np.sqrt((k0*d)**2*(n1**2-n0**2)), np.sqrt((k0*d)**2*(n1**2-n2**2)), pi)
+    if asymmetric_slab_eqs(xmax, n0, n1, n2, d, wl, mode) >= 0:
+        return n_sub
+    return neff_asymmetric_slab(n0, n1, n2, d, wl, mode)
 
 def neff_derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''

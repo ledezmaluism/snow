@@ -45,10 +45,14 @@ frequency `f0`. They add white noise `Npwr_dB` below the peak power.
 
 1. **Geometry** (default). The effective index method: the ridge region
    (film thickness) and the slab region (film minus etch) are each solved as
-   asymmetric slabs (cladding / film / box) for their TE mode. The two indices
-   then form a symmetric slab of width (top + base)/2, solved for its TM-like
-   mode, which is the lateral field of the TE ridge mode. Only the TE mode is
-   implemented (#49).
+   asymmetric slabs (cladding / film / box) for their fundamental mode. The
+   two indices then form a symmetric slab of width (top + base)/2, solved for
+   its fundamental even mode. For the TE-like ridge mode (`mode='TE'`, the
+   default) the vertical slabs are TE and the lateral slab TM; for the
+   TM-like mode (`mode='TM'`) the other way round. A slab region that guides
+   no mode (full etch, or a slab below cut-off) is given the larger of the
+   box and cladding indices. With an anisotropic film, choose the material
+   for the index along the field (e.g. `LN_MgO_o` for TM in x-cut LN).
 2. **Behavioral**. The GVD is a quadratic in angular frequency,
    beta2(omega) = c1 (omega - z1)(omega - z2), integrated analytically to
    beta1, beta and n. The integration constants are fixed by a zero-GVD

@@ -23,10 +23,16 @@ REFERENCE = {
 WAVELENGTHS_UM = (1.0, 1.55, 2.0)
 
 
+# Temperature the reference values were computed at (default 24.5 C).
+# LT_SLT used to hard-code 25 C (#48), so its values are pinned at 25 C.
+REFERENCE_T = {"LT_SLT": 25}
+
+
 @pytest.mark.parametrize("material", sorted(REFERENCE))
 def test_regression_values(material):
+    T = REFERENCE_T.get(material, 24.5)
     for wl, n_ref in zip(WAVELENGTHS_UM, REFERENCE[material]):
-        assert materials.refractive_index(material, wl) == pytest.approx(n_ref, rel=1e-12)
+        assert materials.refractive_index(material, wl, T=T) == pytest.approx(n_ref, rel=1e-12)
 
 
 def test_sio2_matches_malitson_d_line():
@@ -44,7 +50,7 @@ def test_unit_detection_m_nm_um_agree(material):
 @pytest.mark.parametrize("material", sorted(REFERENCE))
 def test_array_input_matches_scalar(material):
     wl = np.array(WAVELENGTHS_UM) * 1e-6
-    n = materials.refractive_index(material, wl)
+    n = materials.refractive_index(material, wl, T=REFERENCE_T.get(material, 24.5))
     assert np.shape(n) == wl.shape
     np.testing.assert_allclose(n, REFERENCE[material], rtol=1e-12)
 
@@ -81,19 +87,20 @@ def test_sellmeier_single_term():
     assert materials.sellmeier(np.array([1.0]), np.array([0.0]), 1.0) == pytest.approx(np.sqrt(2))
 
 
-# ---- known bugs -------------------------------------------------------------
+# ---- #48 ---------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="#48: LT_SLT overwrites the T argument with 25")
 def test_lt_slt_uses_temperature():
-    assert materials.refractive_index("LT_SLT", 1.0, T=100) != materials.refractive_index("LT_SLT", 1.0, T=25)
+    n25 = materials.refractive_index("LT_SLT", 1.0, T=25)
+    n100 = materials.refractive_index("LT_SLT", 1.0, T=100)
+    # Brunner 2003: index rises with temperature, of order 1e-5 /K
+    assert 1e-6 < (n100 - n25) / 75 < 1e-4
 
 
-@pytest.mark.xfail(strict=True, reason="#48: unknown material prints a message, then hits UnboundLocalError")
 def test_unknown_material_raises_value_error():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unobtainium"):
         materials.refractive_index("Unobtainium", 1.0)
 
 
-@pytest.mark.xfail(strict=True, reason="#48: 'Air' returns scalar 1 for array input")
 def test_air_array_input():
-    assert np.shape(materials.refractive_index("Air", np.array([1e-6, 2e-6]))) == (2,)
+    n = materials.refractive_index("Air", np.array([1e-6, 2e-6]))
+    np.testing.assert_array_equal(n, [1.0, 1.0])

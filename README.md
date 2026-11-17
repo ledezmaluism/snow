@@ -10,8 +10,8 @@ It includes:
 
 - **Materials**: refractive indices of LiNbO3 (congruent and MgO-doped, with
   temperature dependence), LiTaO3, SiO2, sapphire and GaP.
-- **Waveguide dispersion**: effective index, group velocity and GVD of ridge
-  waveguides, from the geometry (effective index method), from a "behavioral"
+- **Waveguide dispersion**: effective index, group velocity and GVD of the
+  TE-like or TM-like mode of ridge waveguides, from the geometry (effective index method), from a "behavioral"
   dispersion model, or from your own mode-solver data.
 - **Nonlinear pulse propagation**: a chi(2) nonlinear envelope equation solver
   for broadband SHG, SFG, DFG and parametric amplification, with arbitrary
@@ -165,6 +165,11 @@ Fixed:
   could not run.
 - [#46](https://github.com/ledezmaluism/snow/issues/46): `propagate_NEE`
   needed `set_loss`, and its default `v_ref` ignored the temperature.
+- [#48](https://github.com/ledezmaluism/snow/issues/48): `LT_SLT` ignored the
+  temperature, unknown material names crashed, `Air` returned a scalar.
+- [#49](https://github.com/ledezmaluism/snow/issues/49): the waveguide model
+  had no TM mode, failed on fully etched ridges, and the slab solver failed
+  for higher-order modes.
 
 ## References
 
