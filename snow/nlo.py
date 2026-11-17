@@ -16,7 +16,8 @@ from scipy.integrate import RK45
 
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
-        z0=0, verbose=True, Kg=0, Qnoise=False):
+        z0=0, verbose=True, Kg=0, Qnoise=False,
+        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None):
     """
     Integrate the chi(2) nonlinear envelope equation from z0 to L.
 
@@ -28,7 +29,8 @@ def NEE(t, x, Omega, f0,
     where a = F^-1{A}, omega0 = 2 pi f0 and F is the FFT. The first nonlinear
     term generates sum frequencies (SHG/SFG), the second difference
     frequencies. The equation is solved in the interaction picture
-    (y = A e^{iDz}) with scipy's adaptive RK45 (rtol = atol = 1e-4). The
+    (y = A e^{iDz}) with scipy's adaptive RK45, restarted at every position
+    in `z_breaks`. The
     nonlinear products are evaluated on a 4x upsampled grid (8x when the
     bandwidth requires it) to avoid aliasing.
 
@@ -64,6 +66,14 @@ def NEE(t, x, Omega, f0,
     Qnoise : bool, optional
         Add vacuum noise (half a photon per frequency bin, random phase)
         to the input.
+    rtol, atol : float, optional
+        Relative and absolute tolerances of the RK45 integrator.
+    max_step : float, optional
+        Largest step the integrator may take (m).
+    z_breaks : array, optional
+        Positions (m) where k(z) is discontinuous, e.g. poling domain walls.
+        The integrator is restarted at each one, so no step crosses a
+        discontinuity.
 
     Returns
     -------
@@ -141,20 +151,31 @@ def NEE(t, x, Omega, f0,
 
         return -1j * k(z) * F1 * np.exp(1j*D*z)
     
-    rtol = 1e-4
-    atol = 1e-4
-    
-    Integrator = RK45( fnl, z0, A, L, rtol=rtol, atol=atol )
-    
-    steps = np.array([])
-    while Integrator.status == "running":
-        Integrator.step()
-        steps = np.append( steps, Integrator.step_size )
+    #Integrate segment by segment, restarting at every discontinuity of k(z)
+    #so that no step straddles a poling domain wall (#50)
+    edges = [z0]
+    if z_breaks is not None:
+        edges += sorted(zb for zb in np.unique(z_breaks) if z0 < zb < L)
+    edges.append(L)
+
+    y = A
+    steps = []
+    status = 'finished'
+    for za, zb in zip(edges[:-1], edges[1:]):
+        Integrator = RK45( fnl, za, y, zb, rtol=rtol, atol=atol, max_step=max_step )
+        while Integrator.status == "running":
+            Integrator.step()
+            steps.append( Integrator.step_size )
+        if Integrator.status == 'failed':
+            status = 'failed'
+            break
+        y = Integrator.y
+    steps = np.array(steps)
 
     if verbose:    
-        print( Integrator.status )
+        print( status )
     
-    A[:] = Integrator.y * np.exp(-1j*D*Integrator.t)
+    A = y * np.exp(-1j*D*Integrator.t)
     a = ifft(A)
     
     return a, steps

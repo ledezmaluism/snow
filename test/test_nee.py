@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from scipy.constants import c, h, pi
 
-from snow import pulses, util
+from snow import nlo, pulses, util, waveguides
 from conftest import make_ext_waveguide, fs, um
 
 TAU = 100 * fs
@@ -164,6 +164,84 @@ def test_sh_centered_at_twice_fundamental(tutorial_grid):
     c_ff = np.sum(f[ff] * S_in[ff]) / np.sum(S_in[ff])
     c_sh = np.sum(f[sh] * S_out[sh]) / np.sum(S_out[sh])
     assert abs(c_sh - 2 * c_ff) < 0.25 * out.df
+
+
+# ---- explicit poling functions (#50) -----------------------------------------
+
+@pytest.mark.parametrize("vectorized", [True, False])
+def test_poling_domain_walls(vectorized):
+    period, L = 5e-6, 52e-6
+    if vectorized:
+        poling = lambda z: np.sign(np.cos(2 * pi * z / period))
+    else:
+        poling = lambda z: 1.0 if (z % period) < period / 4 or (z % period) >= 3 * period / 4 else -1.0
+    walls = waveguides.poling_domain_walls(poling, 0, L, resolution=10e-9)
+    expected = np.arange(period / 4, L, period / 2)
+    np.testing.assert_allclose(walls, expected, atol=1e-11)
+
+
+def test_poling_domain_walls_none_for_uniform():
+    assert waveguides.poling_domain_walls(lambda z: 1.0, 0, 1e-3).size == 0
+
+
+def square_shg(tutorial_grid, energy, **kw):
+    t, f_ref = tutorial_grid
+    wg = shg_wg(1e-3)
+    dk = float(wg.beta(1 * um)) - 2 * float(wg.beta(2 * um))
+    wg.add_poling(lambda z: np.sign(np.cos(dk * z)))
+    np.random.seed(1)
+    p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=energy, Npwr_dB=300)
+    out, steps = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(2 * um)[0], **kw)
+    return p, out, steps
+
+
+@pytest.mark.slow
+def test_square_poling_conserves_energy(tutorial_grid):
+    p, out, _ = square_shg(tutorial_grid, 1e-12)
+    assert out.energy_td() / p.energy_td() == pytest.approx(1.0, abs=1e-4)
+
+
+@pytest.mark.slow
+def test_square_poling_is_converged(tutorial_grid):
+    _, out, _ = square_shg(tutorial_grid, 1e-12)
+    _, ref, _ = square_shg(tutorial_grid, 1e-12, rtol=1e-7, atol=1e-7)
+    assert sh_fraction(out) == pytest.approx(sh_fraction(ref), rel=1e-3)
+
+
+@pytest.mark.slow
+def test_square_poling_close_to_first_order_qpm(tutorial_grid):
+    # the higher spatial harmonics of the grating are not phase matched
+    _, out, _ = square_shg(tutorial_grid, 1e-12)
+    _, kg, _ = shg_run(tutorial_grid, 1e-12)
+    assert sh_fraction(out) == pytest.approx(sh_fraction(kg), rel=0.02)
+
+
+@pytest.mark.slow
+def test_old_behaviour_without_domain_walls_is_worse(tutorial_grid):
+    p, out, _ = square_shg(tutorial_grid, 1e-12, poling_resolution=None, max_step=np.inf)
+    p, fixed, _ = square_shg(tutorial_grid, 1e-12)
+    err = lambda o: abs(o.energy_td() / p.energy_td() - 1)
+    assert err(fixed) < err(out)
+
+
+def test_explicit_max_step_is_respected(tutorial_grid):
+    _, _, steps = square_shg(tutorial_grid, 1e-15, max_step=2e-6)
+    assert steps.max() <= 2e-6 * (1 + 1e-12)
+
+
+def test_z_breaks_do_not_change_smooth_solution(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = shg_wg(1e-3)
+    dk = float(wg.beta(1 * um)) - 2 * float(wg.beta(2 * um))
+    p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=1e-12, Npwr_dB=300)
+    D, b0, v = wg._linear_operator(p, v_ref=1 / wg.beta1(2 * um)[0])
+    omega = 2 * pi * p.f_abs
+    k = lambda z: (2 / pi) * wg.X0 * omega / 4
+    args = dict(t=t, x=p.a, Omega=p.Omega, f0=p.f0, L=wg.L, D=D, b0=b0, b1_ref=1 / v, k=k,
+                verbose=False, Kg=dk, rtol=1e-8, atol=1e-8)
+    a1, _ = nlo.NEE(**args)
+    a2, _ = nlo.NEE(**args, z_breaks=np.linspace(0, wg.L, 7)[1:-1])
+    np.testing.assert_allclose(a2, a1, atol=1e-5 * np.abs(a1).max())
 
 
 # ---- #46 ---------------------------------------------------------------------

@@ -103,14 +103,20 @@ with
   first Fourier coefficient of a 50 % duty-cycle grating, 2/pi, and the
   grating wavevector `Kg = 2 pi / period` enters the phase. The integrator can
   then take steps much longer than a domain. Use it for uniform gratings; for
-  chirped or apodized poling pass the full `d(z)` and check convergence
-  (#50).
+  chirped or apodized poling pass the full `d(z)`.
+- Explicit poling: with `Kg = 0`, `propagate_NEE` samples `d(z)` every
+  `poling_resolution` (10 nm) to find its sign changes, refines them to
+  1e-12 m, restarts the integrator at each domain wall and limits the step
+  to a quarter of the shortest domain. Without the step limit RK45's error
+  estimate accepts steps that span most of a domain, during which the
+  mismatched nonlinear drive rotates by about pi, and the result drifts.
 
 ## Solver
 
 `nlo.NEE` works in the interaction picture, y = A e^{iDz}, so the linear part
 is exact and only the nonlinear term is integrated, with scipy's adaptive
-`RK45` (rtol = atol = 1e-4). At each evaluation the envelope is zero-padded
+`RK45` (`rtol` and `atol` default to 1e-4; `max_step` and the restart
+positions `z_breaks` are optional). At each evaluation the envelope is zero-padded
 in frequency to a 4x finer time grid (8x if the bandwidth needs it), the
 products are formed there, and the result is truncated back. This removes
 aliasing of the sum-frequency products. The function returns the output

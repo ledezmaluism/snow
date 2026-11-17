@@ -348,7 +348,9 @@ class waveguide:
     
     def propagate_NEE(self, pulse, v_ref=None, 
                          verbose=True, zcheck_step=None,
-                         z0 = 0, T=24.5, Kg=0, Qnoise=False):
+                         z0 = 0, T=24.5, Kg=0, Qnoise=False,
+                         rtol=1e-4, atol=1e-4, max_step=None,
+                         poling_resolution=10e-9):
         '''
         Propagate a pulse through the waveguide with the chi(2) nonlinear
         envelope equation (`nlo.NEE`).
@@ -375,6 +377,22 @@ class waveguide:
             enters the phase instead (much faster for long devices).
         Qnoise : bool
             Add vacuum noise to the input (half a photon per bin).
+        rtol, atol : float
+            Tolerances of the adaptive RK45 integrator. Tighten them to check
+            that a result is converged.
+        max_step : float or None
+            Largest integration step (m). Default: a quarter of the shortest
+            poling domain when domain walls are found, otherwise unlimited.
+            Tightening `rtol` alone does not converge explicit poling; the
+            step limit does.
+        poling_resolution : float or None
+            With Kg = 0, the poling function is sampled every
+            `poling_resolution` (m) to locate its sign changes (domain
+            walls), which are then refined to 1e-12 m. The integrator
+            restarts at each wall, so no step crosses one (#50). Domains
+            shorter than about twice this are missed. Only sign changes are
+            treated as discontinuities; for other jumps set `max_step`.
+            None disables the search.
 
         Returns
         -------
@@ -406,6 +424,16 @@ class waveguide:
                 p = 2/pi #first order QPM
             return p * self.X0 * omega_abs / (4 * self.N)
 
+        z_breaks = None
+        if Kg == 0 and poling_resolution is not None and self.X0 != 0:
+            z_breaks = poling_domain_walls(self.poling, z0, self.L, poling_resolution)
+        if max_step is None:
+            #Within a domain the phase mismatch turns the nonlinear drive by
+            #~pi, which RK45's error estimate misjudges: limit the step (#50)
+            max_step = np.inf
+            if z_breaks is not None and z_breaks.size >= 2:
+                max_step = np.min(np.diff(z_breaks)) / 4
+
         [a, a_evol] = nlo.NEE(t = pulse.t, 
                           x = pulse.a,
                           Omega = Omega,
@@ -418,7 +446,11 @@ class waveguide:
                           z0 = z0,
                           verbose = verbose,
                           Kg = Kg,
-                          Qnoise = Qnoise)
+                          Qnoise = Qnoise,
+                          rtol = rtol,
+                          atol = atol,
+                          max_step = max_step,
+                          z_breaks = z_breaks)
         
         tdelta = time.time() - tic_total
 
@@ -429,6 +461,31 @@ class waveguide:
         output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
         
         return output_pulse, a_evol
+
+def poling_domain_walls(poling, z0, L, resolution=10e-9):
+    '''
+    Positions in (z0, L) where the poling function changes sign.
+
+    `poling` is sampled every `resolution` (m); each sign change is then
+    refined with brentq to 1e-12 m. The function may be vectorized or not.
+    '''
+    n = int(np.ceil((L - z0)/resolution)) + 1
+    zs = np.linspace(z0, L, n)
+    try:
+        vals = np.broadcast_to(np.asarray(poling(zs), dtype=float), zs.shape)
+    except (TypeError, ValueError):
+        vals = np.array([poling(z) for z in zs], dtype=float)
+    s = np.sign(vals)
+    walls = []
+    for i in np.nonzero(s[:-1] != s[1:])[0]:
+        if s[i] == 0:
+            walls.append(zs[i])
+        elif s[i+1] == 0:
+            walls.append(zs[i+1])
+        else:
+            walls.append(brentq(lambda z: float(np.sign(poling(z))),
+                                zs[i], zs[i+1], xtol=1e-12))
+    return np.unique(walls)
 
 def beta_f(kx, ky, n, k0):
     '''

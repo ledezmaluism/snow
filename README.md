@@ -81,8 +81,10 @@ Energy out/in: 0.99998
 
 `Kg` replaces the square-wave poling by its first Fourier component (2/pi), so
 the solver can take long steps. For non-uniform poling (chirps, apodization)
-pass a function of z to `wg.add_poling` instead, and check convergence: the
-adaptive step is not limited to a poling domain yet (#50).
+pass a function of z to `wg.add_poling` instead. `propagate_NEE` then finds
+the domain walls, restarts the integrator at each one and limits the step to
+a quarter of the shortest domain. This is accurate but slower (about 15 s
+for the 4 mm device in tutorial 5, against a fraction of a second with `Kg`).
 
 ## Tutorials
 
@@ -143,10 +145,8 @@ error until the marker is removed. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
-The ones most likely to affect results:
-
-- [#50](https://github.com/ledezmaluism/snow/issues/50): explicit square-wave
-  poling is not converged by the adaptive solver.
+The remaining one is
+[#47](https://github.com/ledezmaluism/snow/issues/47): `snow.opos` cannot run.
 
 Fixed:
 
@@ -170,6 +170,9 @@ Fixed:
 - [#49](https://github.com/ledezmaluism/snow/issues/49): the waveguide model
   had no TM mode, failed on fully etched ridges, and the slab solver failed
   for higher-order modes.
+- [#50](https://github.com/ledezmaluism/snow/issues/50): with a poling
+  function, the solver stepped across domain walls; results were not
+  converged (about 10 % too much SH and 0.3 % energy gain in a 1 mm device).
 
 ## References
 
