@@ -87,6 +87,53 @@ def test_sellmeier_single_term():
     assert materials.sellmeier(np.array([1.0]), np.array([0.0]), 1.0) == pytest.approx(np.sqrt(2))
 
 
+# ---- registry ----------------------------------------------------------------
+
+def test_registry_lists_every_material():
+    assert set(materials.available()) == set(REFERENCE) | {"Air"}
+    for name in materials.available():
+        m = materials.MATERIALS[name]
+        assert m.name == name and m.description
+
+
+def test_temperature_flag_matches_behaviour():
+    for name, m in materials.MATERIALS.items():
+        n1 = materials.refractive_index(name, 1.0, T=24.5)
+        n2 = materials.refractive_index(name, 1.0, T=120)
+        assert (n1 != n2) == m.temperature, name
+
+
+def test_range_warning():
+    with pytest.warns(materials.MaterialRangeWarning, match="LN_MgO_e"):
+        materials.refractive_index("LN_MgO_e", 6.0)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        materials.refractive_index("LN_MgO_e", 2.0)
+        materials.refractive_index("GaP", 30.0 / 2)  # no known range: no warning
+
+
+def test_unrecognised_wavelength_unit_warns():
+    with pytest.warns(UserWarning, match="recognised"):
+        materials.refractive_index("Air", 50.0)
+
+
+def test_list_input():
+    np.testing.assert_allclose(materials.refractive_index("SiO2", [1.0, 2.0]),
+                               [REFERENCE["SiO2"][0], REFERENCE["SiO2"][2]], rtol=1e-12)
+
+
+def test_register_new_material():
+    @materials.register("_TestGlass", "constant", wl_range_um=(0.4, 2.0))
+    def _(wl, T):
+        return 1.5 + 0 * wl
+    try:
+        assert materials.refractive_index("_TestGlass", 1e-6) == 1.5
+        assert "_TestGlass" in materials.available()
+    finally:
+        del materials.MATERIALS["_TestGlass"]
+
+
 # ---- #48 ---------------------------------------------------------------------
 
 def test_lt_slt_uses_temperature():

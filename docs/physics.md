@@ -124,13 +124,23 @@ envelope and the list of step sizes.
 
 `Qnoise=True` adds vacuum fluctuations to the input: half a photon,
 h f / 2, of energy per frequency bin, with random phase. This seeds
-spontaneous processes such as parametric generation.
+spontaneous processes such as parametric generation. Pass `rng` (a numpy
+`Generator` or a seed) for reproducible noise; without it numpy's global
+generator is used, so `np.random.seed` still works.
+
+`nlo.propagate` wraps `NEE` for any medium: it takes beta on the pulse grid,
+the frame velocity, the loss and the coupling k(z), builds D and returns the
+output pulse. The waveguide and the bulk crystal are thin layers over it,
+and both offer `propagate(pulse, v_ref=...)`, which is what `opos.opo`
+calls, so the OPO gain medium can be either.
 
 ## Bulk crystals
 
 `crystals.nonlinear_crystal` uses the same solver with beta from a bulk index
 function and k = chi2(z) omega / (4 n c). There is no transverse
 normalization, so absolute conversion efficiencies are not meaningful yet.
+Its default `v_ref` comes from a finite difference of beta on the pulse grid,
+while the waveguide's uses `beta1` at the reference wavelength.
 
 ## References
 

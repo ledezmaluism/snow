@@ -2,22 +2,29 @@
 """
 Nonlinear envelope equation (NEE) solver for chi(2) propagation.
 
-Most users call this through `waveguide.propagate_NEE` or
-`nonlinear_crystal.propagate_NEE_fd`, which build the dispersion operator and
-the coupling. See docs/physics.md for the model and conventions.
+`propagate` is the common entry point: a medium supplies its propagation
+constant and coupling, and `propagate` builds the linear operator and calls
+`NEE`. Most users go through `waveguide.propagate_NEE` or
+`nonlinear_crystal.propagate_NEE_fd`. See docs/physics.md for the model and
+conventions.
 
 @author: Luis Ledezma
 """
+import time
+import warnings
+
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq
 from scipy.constants import pi, h
 
 from scipy.integrate import RK45
 
+from . import pulses
+
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         z0=0, verbose=True, Kg=0, Qnoise=False,
-        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None):
+        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None, rng=None):
     """
     Integrate the chi(2) nonlinear envelope equation from z0 to L.
 
@@ -74,6 +81,9 @@ def NEE(t, x, Omega, f0,
         Positions (m) where k(z) is discontinuous, e.g. poling domain walls.
         The integrator is restarted at each one, so no step crosses a
         discontinuity.
+    rng : numpy Generator, int or None, optional
+        Random generator (or seed) for the vacuum noise. None uses numpy's
+        global generator, as before.
 
     Returns
     -------
@@ -99,12 +109,12 @@ def NEE(t, x, Omega, f0,
     Nup = 4
     if (3*f_max - f_min)/BW > Nup:
         Nup = 8
-        print('Warning: large upsampling necessary!')
-        print('Using %ix upsampling.' %(Nup))
+        warnings.warn('NEE: the bandwidth needs 8x upsampling (slower); '
+                      'consider centring the reference frequency', RuntimeWarning, stacklevel=2)
 
     #Quantum noise
     if Qnoise:
-        ϕ = np.random.uniform( 0, 2*pi, NFFT )
+        ϕ = random_source(rng).uniform( 0, 2*pi, NFFT )
         Xnoise = BW * np.sqrt(h*f_abs/2/Δf) * np.exp(1j * ϕ)
         xnoise = ifft(Xnoise)
     else:
@@ -168,6 +178,9 @@ def NEE(t, x, Omega, f0,
             steps.append( Integrator.step_size )
         if Integrator.status == 'failed':
             status = 'failed'
+            warnings.warn(f'NEE: the integrator failed at z = {Integrator.t:.6g} m '
+                          f'({Integrator.message}); the output is the field there',
+                          RuntimeWarning, stacklevel=2)
             break
         y = Integrator.y
     steps = np.array(steps)
@@ -181,5 +194,67 @@ def NEE(t, x, Omega, f0,
     return a, steps
 
 
-if __name__ == '__main__':
-    pass
+def random_source(rng=None):
+    '''
+    Object with `normal` and `uniform` methods: numpy's global generator for
+    rng=None (reproducible with np.random.seed, as before), otherwise
+    np.random.default_rng(rng) (a Generator or a seed).
+    '''
+    if rng is None:
+        return np.random
+    return np.random.default_rng(rng)
+
+
+def linear_operator(pulse, beta, alpha, v_ref):
+    '''
+    Linear operator in the moving frame,
+    D = beta - beta_ref - Omega/v_ref - i alpha/2 (1/m), with beta_ref = beta
+    at the reference frequency (first FFT bin). Returns (D, beta_ref).
+    '''
+    beta_ref = beta[0]
+    D = beta - beta_ref - pulse.Omega/v_ref - 1j*alpha/2
+    return D, beta_ref
+
+
+def propagate(pulse, L, beta, v_ref, k, alpha=0, z0=0, Kg=0, Qnoise=False,
+              rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None,
+              verbose=True, rng=None):
+    '''
+    Propagate a pulse through any chi(2) medium with `NEE`.
+
+    This is the common core of `waveguide.propagate_NEE` and
+    `nonlinear_crystal.propagate_NEE_fd`; a medium only has to supply its
+    propagation constant on the pulse grid and its coupling.
+
+    Parameters
+    ----------
+    pulse : pulses.pulse
+    L : float
+        End position (m).
+    beta : array
+        Propagation constant at the pulse's absolute frequencies (1/m),
+        FFT order.
+    v_ref : float
+        Velocity of the moving frame (m/s).
+    k : callable
+        k(z): nonlinear coupling at position z (scalar or array over
+        frequency).
+    alpha : float
+        Power attenuation coefficient (1/m).
+    The other arguments are passed to `NEE`.
+
+    Returns
+    -------
+    output_pulse : pulses.pulse
+    steps : array
+        Integrator step sizes (m).
+    '''
+    tic = time.time()
+    D, beta_ref = linear_operator(pulse, beta, alpha, v_ref)
+    a, steps = NEE(t=pulse.t, x=pulse.a, Omega=pulse.Omega, f0=pulse.f0, L=L,
+                   D=D, b0=beta_ref, b1_ref=1/v_ref, k=k, z0=z0, verbose=verbose,
+                   Kg=Kg, Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
+                   z_breaks=z_breaks, rng=rng)
+    if verbose:
+        print('Total time = %0.1f s' %(time.time() - tic))
+    return pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep), steps

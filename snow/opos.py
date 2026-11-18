@@ -140,8 +140,8 @@ class opo:
 
     Parameters
     ----------
-    crystal : crystals.nonlinear_crystal
-        Gain medium.
+    crystal : crystals.nonlinear_crystal or waveguides.waveguide
+        Gain medium: anything with a ``propagate(pulse, v_ref=...)`` method.
     phis : list of float
         Cavity dispersion [GDD, TOD, 4OD, ...] (s^2, s^3, ...), about the
         signal frequency f0_sh/2.
@@ -161,23 +161,40 @@ class opo:
         Deprecated and ignored (step size of the old fixed-step solver).
     v_ref : float or None
         Velocity of the moving frame (m/s).
-    pulse_params : list
-        [FWHM (s), f_ref (Hz), pump frequency f0_sh (Hz), noise level (dB)].
+    pulse_params : list, deprecated
+        [fwhm, f_ref, f_pump, noise_dB]; pass the keywords below instead.
     pulsetype : {'sech', 'gauss'}
     roundtrips : int
     numsamp : int
         Number of final round trips averaged for outputs and plots.
+    fwhm : float
+        Pump intensity FWHM (s).
+    f_ref : float
+        Reference frequency of the grid (Hz).
+    f_pump : float
+        Pump carrier frequency (Hz); the signal is at f_pump/2.
+    noise_dB : float
+        Pump noise level below its peak power (dB).
+    rng : numpy Generator, int or None
+        Random generator or seed for the pump noise (None: numpy's global
+        generator).
 
     Results are stored in `out_full_td` and `out_full_fd`, indexed
     [roundtrip, pump power, detuning, sample].
     '''
     def __init__(self, crystal, phis, feedfunc, outcoupling, t,
-                 dTs, pins, f_rep, h, v_ref, pulse_params,
-                 pulsetype='sech', roundtrips=100, numsamp=20):
-        #pulse_params include tau, f_ref, f0_sh, and Npwr_dB
-        #phis are cavity dispersion parameters [GDD, TOD, 4OD, ...]
-        #feedfunc is any frequency-dependent loss function.
-        self.pulse_params = pulse_params
+                 dTs, pins, f_rep, h=None, v_ref=None, pulse_params=None,
+                 pulsetype='sech', roundtrips=100, numsamp=20, *,
+                 fwhm=None, f_ref=None, f_pump=None, noise_dB=100, rng=None):
+        if pulse_params is not None:
+            warnings.warn('opo: pulse_params is deprecated; pass fwhm, f_ref, '
+                          'f_pump and noise_dB as keywords', DeprecationWarning, stacklevel=2)
+            fwhm, f_ref, f_pump, noise_dB = pulse_params
+        if fwhm is None or f_ref is None or f_pump is None:
+            raise TypeError('opo needs fwhm, f_ref and f_pump')
+        self.fwhm, self.f_ref, self.f_pump, self.noise_dB = fwhm, f_ref, f_pump, noise_dB
+        self.pulse_params = [fwhm, f_ref, f_pump, noise_dB] #kept for compatibility
+        self.rng = rng
         if (pulsetype != 'sech') and (pulsetype != 'gauss'):
             raise ValueError('pulsetype must be either sech or gauss.')
         self.pulsetype = pulsetype
@@ -208,7 +225,7 @@ class opo:
         self.df = self.f[1]-self.f[0]
         
         #absolute frequencies
-        self.f0 = pulse_params[1]
+        self.f0 = f_ref
         self.f_abs = self.f + self.f0
         
         #OPO outputs
@@ -219,16 +236,17 @@ class opo:
     
     def run_opo(self):
         '''Run all round trips for every pump power and detuning.'''
-        tau = self.pulse_params[0]
+        tau = self.fwhm
         if self.pulsetype == 'sech':
             ff_filter_bw = 7*0.315/tau
         elif self.pulsetype == 'gauss':
             ff_filter_bw = 7*0.44/tau
-        f_ref = self.pulse_params[1]
+        f_ref = self.f_ref
         wl_ref = c/f_ref
-        f0_sh = self.pulse_params[2]
+        f0_sh = self.f_pump
         f0_ff = f0_sh/2
-        Noise_dB = self.pulse_params[3]
+        Noise_dB = self.noise_dB
+        rng = None if self.rng is None else np.random.default_rng(self.rng)
         phi_base = 0
         for tt in range(np.size(self.phis)):
             phi_base = phi_base + self.phis[tt]/(math.factorial(tt+2))*(2*pi*(self.f_abs-f0_ff))**(tt+2)
@@ -244,11 +262,11 @@ class opo:
                 make = pulses.sech_pulse if self.pulsetype == 'sech' else pulses.gaussian_pulse
                 def pump():
                     return make(self.t, FWHM=tau, Ppeak=Ppeak, f_ref=f_ref, f0=f0_sh,
-                                Npwr_dB=Noise_dB, frep=self.f_rep)
+                                Npwr_dB=Noise_dB, frep=self.f_rep, rng=rng)
                 in_pulse = pump() # input pulse for the first roundtrip
                 for ii in range(self.roundtrips):
-                    out_pulse, _ = self.crystal.propagate_NEE_fd(in_pulse, v_ref=self.v_ref,
-                                                                 verbose=False)
+                    out_pulse, _ = self.crystal.propagate(in_pulse, v_ref=self.v_ref,
+                                                          verbose=False)
                     out_ff, h_ff = pulses.filter_signal(self.f_abs, out_pulse.A, f0_ff,
                                                         ff_filter_bw, type='ideal')
                     feedback_ff = np.fft.ifft(self.feedfunc*np.exp(-1j*phi)*fft(out_ff))
@@ -261,7 +279,7 @@ class opo:
         if (np.size(self.dTs) < 2):
             raise ValueError('Plotting a 3d spectrum for a single detuning value does not make sense.')
         return plot_3d_spectrum(self.out_full_fd, self.f_abs, self.pulsetype, self.dTs, self.pins,
-                                pin_val, self.numsamp, self.pulse_params[0], self.pulse_params[2], ax)
+                                pin_val, self.numsamp, self.fwhm, self.f_pump, ax)
 
     def plot_peak_structure(self, pin_val, ax=None):
         if (np.size(self.dTs) < 2):

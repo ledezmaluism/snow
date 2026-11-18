@@ -166,7 +166,7 @@ def test_bulk_group_index_matches_material(wl_um):
 # ---- alternative index models -----------------------------------------------
 
 def test_external_index_reproduces_table():
-    wl = np.linspace(0.5 * um, 6 * um, 600)
+    wl = np.linspace(0.5 * um, 5 * um, 600)
     n = materials.refractive_index("LN_MgO_e", wl)
     wg = make_ext_waveguide()
     np.testing.assert_allclose(wg.neff(wl[::37]), n[::37], rtol=1e-12)

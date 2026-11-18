@@ -51,11 +51,38 @@ def test_peak_power_and_average_power_inputs(grid, make, factor):
     assert p.frep == 100e6
 
 
-def test_default_energy_is_one_pj(grid, capsys):
+def test_default_energy_is_one_pj(grid):
     t, f_ref = grid
-    p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Npwr_dB=QUIET)
+    with pytest.warns(UserWarning, match="1 pJ"):
+        p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Npwr_dB=QUIET)
     assert p.energy_td() == pytest.approx(1e-12, rel=2e-3)
-    assert "default 1pJ" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("make", [pulses.gaussian_pulse, pulses.sech_pulse])
+def test_rng_makes_noise_reproducible(grid, make):
+    t, f_ref = grid
+    a = make(t, TAU, f_ref, Energy=E0, Npwr_dB=20, rng=7).a
+    b = make(t, TAU, f_ref, Energy=E0, Npwr_dB=20, rng=np.random.default_rng(7)).a
+    c_ = make(t, TAU, f_ref, Energy=E0, Npwr_dB=20, rng=8).a
+    np.testing.assert_array_equal(a, b)
+    assert not np.allclose(a, c_)
+
+
+def test_rng_none_uses_global_generator(grid):
+    t, f_ref = grid
+    np.random.seed(3)
+    a = pulses.noise(t, 1.0)
+    np.random.seed(3)
+    np.testing.assert_array_equal(pulses.noise(t, 1.0), a)
+
+
+def test_bad_domain_and_units_raise(gauss):
+    with pytest.raises(ValueError, match="domain"):
+        pulses.pulse(gauss.t, gauss.a, gauss.wl0, gauss.frep, domain="Space")
+    with pytest.raises(ValueError, match="t_unit"):
+        gauss.plot_magsq(t_unit="s")
+    with pytest.raises(ValueError, match="f_unit"):
+        gauss.plot_PSD(f_unit="Hz")
 
 
 def test_noise_level(grid):
@@ -148,10 +175,10 @@ def test_spectrum_in_dbm(gauss):
     np.testing.assert_allclose(gauss.spectrum(res), 10 * np.log10(gauss.get_psd() * res) + 30)
 
 
-def test_wavelength_sanity_warning(grid, capsys):
+def test_wavelength_sanity_warning(grid):
     t, _ = grid
-    pulses.pulse(t, np.zeros(t.size, complex), 100e-6, 1e8)
-    assert "outside usual range" in capsys.readouterr().out
+    with pytest.warns(UserWarning, match="outside the usual range"):
+        pulses.pulse(t, np.zeros(t.size, complex), 100e-6, 1e8)
 
 
 # ---- filters -----------------------------------------------------------------

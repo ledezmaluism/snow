@@ -14,7 +14,6 @@ index method. All lengths are in meters.
 """
 
 import numpy as np
-import time
 import warnings
 from scipy.optimize import brentq
 from scipy.constants import pi, c
@@ -279,13 +278,17 @@ class waveguide:
         D = beta - beta_ref - Omega/v_ref - i alpha/2 (1/m).
         Returns (D, beta_ref, v_ref).
         '''
+        beta, v_ref = self._beta_and_frame(pulse, v_ref, T)
+        D, beta_ref = nlo.linear_operator(pulse, beta, self.alpha, v_ref)
+        return D, beta_ref, v_ref
+
+    def _beta_and_frame(self, pulse, v_ref=None, T=24.5):
+        '''beta on the pulse grid, and v_ref (default: group velocity at wl0).'''
         beta = self.beta(pulse.wl, T=T)
         if v_ref is None:
             #group velocity at the reference wavelength only (pulse.wl[0])
             v_ref = 1/self.beta1(pulse.wl0, T=T)[0]
-        beta_ref = beta[0]
-        D = beta - beta_ref - pulse.Omega/v_ref - 1j*self.alpha/2
-        return D, beta_ref, v_ref
+        return beta, v_ref
 
     def propagate_linear(self, pulse, v_ref=None, T=24.5):
         '''
@@ -338,7 +341,7 @@ class waveguide:
                          verbose=True, zcheck_step=None,
                          z0 = 0, T=24.5, Kg=0, Qnoise=False,
                          rtol=1e-4, atol=1e-4, max_step=None,
-                         poling_resolution=10e-9):
+                         poling_resolution=10e-9, rng=None):
         '''
         Propagate a pulse through the waveguide with the chi(2) nonlinear
         envelope equation (`nlo.NEE`).
@@ -365,6 +368,9 @@ class waveguide:
             enters the phase instead (much faster for long devices).
         Qnoise : bool
             Add vacuum noise to the input (half a photon per bin).
+        rng : numpy Generator, int or None
+            Random generator or seed for the vacuum noise (None: numpy's
+            global generator).
         rtol, atol : float
             Tolerances of the adaptive RK45 integrator. Tighten them to check
             that a result is converged.
@@ -392,18 +398,8 @@ class waveguide:
             warnings.warn('zcheck_step is ignored and will be removed',
                           DeprecationWarning, stacklevel=2)
 
-        #Timer
-        tic_total = time.time()
-         
-        #Get pulse info
-        f0 = pulse.f0
-        Omega  = pulse.Omega
-        
-        D, beta_ref, v_ref = self._linear_operator(pulse, v_ref=v_ref, T=T)
-        beta_1_ref = 1/v_ref
-
-        omega_ref = 2*pi*f0
-        omega_abs = omega_ref + Omega
+        beta, v_ref = self._beta_and_frame(pulse, v_ref, T)
+        omega_abs = 2*pi*pulse.f0 + pulse.Omega
         
         def k(z): #nonlinear coupling
             if Kg == 0:
@@ -422,33 +418,17 @@ class waveguide:
             if z_breaks is not None and z_breaks.size >= 2:
                 max_step = np.min(np.diff(z_breaks)) / 4
 
-        [a, a_evol] = nlo.NEE(t = pulse.t, 
-                          x = pulse.a,
-                          Omega = Omega,
-                          f0 = pulse.f0,
-                          L = self.L,
-                          D = D, 
-                          b0 = beta_ref, 
-                          b1_ref = beta_1_ref, 
-                          k = k,
-                          z0 = z0,
-                          verbose = verbose,
-                          Kg = Kg,
-                          Qnoise = Qnoise,
-                          rtol = rtol,
-                          atol = atol,
-                          max_step = max_step,
-                          z_breaks = z_breaks)
-        
-        tdelta = time.time() - tic_total
+        return nlo.propagate(pulse, self.L, beta, v_ref, k, alpha=self.alpha, z0=z0,
+                             Kg=Kg, Qnoise=Qnoise, rtol=rtol, atol=atol,
+                             max_step=max_step, z_breaks=z_breaks,
+                             verbose=verbose, rng=rng)
 
-        if verbose:
-            print('Total time = %0.1f s' %(tdelta))
-            print()
-            
-        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
-        
-        return output_pulse, a_evol
+    def propagate(self, pulse, v_ref=None, verbose=False, **kwargs):
+        '''
+        Common propagation interface shared with `nonlinear_crystal` (used
+        by `opos.opo`): same as `propagate_NEE`, quiet by default.
+        '''
+        return self.propagate_NEE(pulse, v_ref=v_ref, verbose=verbose, **kwargs)
 
 def poling_domain_walls(poling, z0, L, resolution=10e-9):
     '''
@@ -500,8 +480,7 @@ def symmetric_slab_equations(X, n0, n1, d, wl, mode):
     elif mode=='TM odd':
         F = X/np.tan(X)*(n0/n1)**2 + Y
     else:
-        print('Wrong mode selection....?')
-        F = 0
+        raise ValueError(f"unknown mode {mode!r}")
 
     return F
 

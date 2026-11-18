@@ -15,6 +15,8 @@ Conventions (see docs/physics.md):
 
 @author: Luis Ledezma
 """
+import warnings
+
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
 import matplotlib.pyplot as plt
@@ -120,16 +122,34 @@ def sech(t, Energy, FWHM, f0=0):
     x = np.sqrt(Ppeak) / np.cosh( 1.76 * t/ FWHM )
     return x * np.exp(1j*2*pi*f0*t)
 
-def noise(t, Npower):
+def noise(t, Npower, rng=None):
     '''
     Complex white Gaussian noise with mean power `Npower` (W) per sample.
-    Uses numpy's global random generator (seed it for reproducible runs).
+
+    `rng` is a numpy Generator or a seed; None uses numpy's global
+    generator (reproducible with np.random.seed).
     '''
+    gen = _random_source(rng)
     sigma = np.sqrt(Npower) / np.sqrt(2)
-    x = np.random.normal(scale = sigma, size = t.size) + 1j*np.random.normal(scale = sigma, size = t.size)
+    x = gen.normal(scale = sigma, size = t.size) + 1j*gen.normal(scale = sigma, size = t.size)
     return x
 
-def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6):
+def _random_source(rng=None):
+    #numpy's global generator for None, else a Generator from rng
+    return np.random if rng is None else np.random.default_rng(rng)
+
+def _default_energy(Energy, Ppeak, Pavg, FWHM, frep, peak_factor):
+    if Energy is not None:
+        return Energy
+    if Ppeak is not None:
+        return Ppeak * FWHM / peak_factor
+    if Pavg is not None:
+        return Pavg/frep
+    warnings.warn('no Energy, Ppeak or Pavg given: using 1 pJ', UserWarning, stacklevel=3)
+    return 1e-12
+
+def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6,
+                   rng=None):
     '''
     Gaussian `pulse` object with additive noise.
 
@@ -150,21 +170,15 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, 
         Noise power below the peak power, in dB (sign is ignored).
     frep : float, optional
         Repetition rate (Hz), used for average powers and PSDs.
+    rng : numpy Generator, int or None, optional
+        Random generator or seed for the noise (None: numpy's global
+        generator).
 
     Returns
     -------
     pulse
     '''
-    
-    if Energy != None:
-        pass
-    elif Ppeak != None:
-        Energy = Ppeak * FWHM / 0.94
-    elif Pavg != None:
-        Energy = Pavg/frep
-    else:
-        print('Warning: Using default 1pJ of energy for the pulse')
-        Energy = 1e-12
+    Energy = _default_energy(Energy, Ppeak, Pavg, FWHM, frep, 0.94)
 
     if f0 is None:
         f0 = f_ref
@@ -172,24 +186,16 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, 
     
     Npwr_dB = abs(Npwr_dB)
     Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
-    n = noise(t, Npwr)
+    n = noise(t, Npwr, rng)
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
-def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6):
+def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6,
+               rng=None):
     '''
     Sech `pulse` object with additive noise. Same arguments as
     `gaussian_pulse`; `f0` defaults to `f_ref`.
     '''
-    
-    if Energy != None:
-        pass
-    elif Ppeak != None:
-        Energy = Ppeak * FWHM / 0.88
-    elif Pavg != None:
-        Energy = Pavg/frep
-    else:
-        print('Warning: Using default 1pJ of energy for the pulse')
-        Energy = 1e-12
+    Energy = _default_energy(Energy, Ppeak, Pavg, FWHM, frep, 0.88)
 
     if f0 is None:
         f0 = f_ref
@@ -197,7 +203,7 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr
     
     Npwr_dB = abs(Npwr_dB)
     Npwr = np.amax(np.abs(x)**2) * 10**(-Npwr_dB/10 )
-    n = noise(t, Npwr)
+    n = noise(t, Npwr, rng)
     return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
 def filter_signal(f_abs, X, f0, bw, type='ideal'):
@@ -307,7 +313,7 @@ def plot_vs_time(t, x, ylabel='', t_unit='ps', ax=None):
     elif t_unit=='ns':
         t = t*1e9
     else:
-        print('What was that? Don\'t know that time unit...')
+        raise ValueError(f"t_unit must be 'fs', 'ps' or 'ns', not {t_unit!r}")
         
     if ax is None:
         fig = plt.figure()
@@ -328,7 +334,7 @@ def plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
     elif wl_unit=='nm':
         wl = wl*1e9
     else:
-        print('What was that? Don\'t know that wavelength unit...')
+        raise ValueError(f"wl_unit must be 'um' or 'nm', not {wl_unit!r}")
         
     wl = fftshift(wl)
     x = fftshift(x)
@@ -353,7 +359,7 @@ def plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
     elif f_unit=='PHz':
         f = f*1e-15
     else:
-        print('What was that? Don\'t know that frequency unit...')
+        raise ValueError(f"f_unit must be 'GHz', 'THz' or 'PHz', not {f_unit!r}")
         
     f = fftshift(f)
     x = fftshift(x)
@@ -396,6 +402,8 @@ def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
         ax = plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
     elif f_unit in ['GHz', 'THz', 'PHz']:
         ax = plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
+    else:
+        raise ValueError(f"f_unit must be 'um', 'nm', 'GHz', 'THz' or 'PHz', not {f_unit!r}")
         
     return ax
     
@@ -457,8 +465,9 @@ class pulse:
     def __init__(self, t, x, wavelength, frep, domain='Time'):
 
         if not 50e-9 <= wavelength <= 20e-6:
-            print('Warning: Wavelength of %0.2f um '%(wavelength*1e6) + 
-                  'for pulse looks outside usual range.')
+            warnings.warn('pulse: reference wavelength of %0.2f um is outside the usual range '
+                          '(50 nm - 20 um); is it in meters?' %(wavelength*1e6),
+                          UserWarning, stacklevel=2)
 
         #Static atributes, they usually don't change
         self.t = t
@@ -489,12 +498,12 @@ class pulse:
             self.A = x
             self.a = fftshift( ifft(x, self.NFFT) ) #inverse of A = fft(fftshift(a)) (#42)
         else:
-            print('Wrong domain option. Options are "Time" or "Freq"')
+            raise ValueError(f"domain must be 'Time' or 'Freq', not {domain!r}")
 
         if np.amin(self.f_abs)<=0:
-            print('Warning: negative absolute frequencies found. ' + 
-                  'Considering reducing the number of points, ' +  
-                  'or increasing the total time')   
+            warnings.warn('pulse: the frequency grid reaches zero or negative absolute '
+                          'frequencies; use fewer points or a longer time window',
+                          UserWarning, stacklevel=2)
             
     def __add__(self, pulse2):
         xsum = self.a + pulse2.a
@@ -596,6 +605,8 @@ class pulse:
             ax = plot_vs_wavelength(c/f, spectrum, ylabel=label, ax=ax, wl_unit=f_unit)
         elif f_unit in ['GHz', 'THz', 'PHz']:
             ax = plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
+        else:
+            raise ValueError(f"f_unit must be 'um', 'nm', 'GHz', 'THz' or 'PHz', not {f_unit!r}")
         
         return ax
     

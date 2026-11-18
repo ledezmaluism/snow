@@ -64,8 +64,8 @@ def make_opo(grid, chi2_amp, pins, dTs=(0.0,), roundtrips=15, numsamp=5):
     dk = 2 * pi * n_bulk(WL_P) / WL_P - 2 * pi * n_bulk(2 * WL_P) / WL_P
     xtal = crystals.nonlinear_crystal(1e-3, n_bulk, chi2=lambda z: chi2_amp * np.cos(dk * z))
     return opos.opo(xtal, phis=[0.0], feedfunc=np.full(t.size, 0.7), outcoupling=0.7, t=t,
-                    dTs=np.array(dTs), pins=np.array(pins), f_rep=F_REP, h=None, v_ref=None,
-                    pulse_params=[100 * fs, f_ref, c / WL_P, 100],
+                    dTs=np.array(dTs), pins=np.array(pins), f_rep=F_REP,
+                    fwhm=100 * fs, f_ref=f_ref, f_pump=c / WL_P, noise_dB=100,
                     roundtrips=roundtrips, numsamp=numsamp)
 
 
@@ -110,6 +110,40 @@ def test_opo_plots(opo_grid):
     best = [max(sim.get_outpow(d, p) for d in (0.0, 2 * fs)) for p in (0.05, 0.1)]
     np.testing.assert_allclose(eff, 100 * np.array(best) / [0.05, 0.1], rtol=1e-5)
     plt.close("all")
+
+
+def test_opo_pulse_params_still_work(opo_grid):
+    t, f_ref = opo_grid
+    xtal = crystals.nonlinear_crystal(1e-3, n_bulk, chi2=lambda z: 0.0)
+    with pytest.deprecated_call():
+        old = opos.opo(xtal, [0.0], np.ones(t.size), 0.5, t, np.array([0.0]), np.array([1e-3]),
+                       F_REP, None, None, [100 * fs, f_ref, c / WL_P, 90], roundtrips=1, numsamp=1)
+    assert (old.fwhm, old.f_ref, old.f_pump, old.noise_dB) == (100 * fs, f_ref, c / WL_P, 90)
+    with pytest.raises(TypeError):
+        opos.opo(xtal, [0.0], np.ones(t.size), 0.5, t, np.array([0.0]), np.array([1e-3]), F_REP)
+
+
+def test_opo_rng_reproducible(opo_grid):
+    runs = []
+    for _ in range(2):
+        sim = make_opo(opo_grid, 0.0, [0.1], roundtrips=2)
+        sim.rng = 5
+        sim.run_opo()
+        runs.append(sim.out_full_td.copy())
+    np.testing.assert_array_equal(runs[0], runs[1])
+
+
+def test_opo_accepts_a_waveguide(opo_grid):
+    # any medium with propagate(pulse, v_ref=...) works as the gain medium
+    t, f_ref = opo_grid
+    wg = make_ext_waveguide()
+    wg.set_length(0.5e-3)
+    wg.add_poling(lambda z: 1.0)
+    wg.set_nonlinear_coeffs(N=1, X0=0.0)
+    sim = opos.opo(wg, [0.0], np.full(t.size, 0.7), 0.7, t, np.array([0.0]), np.array([0.1]),
+                   F_REP, fwhm=100 * fs, f_ref=f_ref, f_pump=c / WL_P, roundtrips=2, numsamp=1)
+    sim.run_opo()
+    assert sim.get_outenergy(0.0, 0.1) < 1e-6 * 0.1 / F_REP
 
 
 def test_opo_h_is_deprecated(opo_grid):

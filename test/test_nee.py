@@ -244,6 +244,42 @@ def test_z_breaks_do_not_change_smooth_solution(tutorial_grid):
     np.testing.assert_allclose(a2, a1, atol=1e-5 * np.abs(a1).max())
 
 
+# ---- shared propagation core --------------------------------------------------
+
+def test_waveguide_goes_through_nlo_propagate(tutorial_grid, monkeypatch):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-4)
+    calls = []
+    original = nlo.propagate
+    monkeypatch.setattr(nlo, "propagate", lambda *a, **k: calls.append(k) or original(*a, **k))
+    p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
+    wg.propagate_NEE(p, verbose=False)
+    wg.propagate(p)
+    assert len(calls) == 2
+
+
+def test_quantum_noise_rng_reproducible(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-5)
+    p = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
+    a1, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=11)
+    a2, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=11)
+    a3, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=12)
+    np.testing.assert_array_equal(a1.a, a2.a)
+    assert not np.allclose(a1.a, a3.a)
+
+
+def test_verbose_output(tutorial_grid, capsys):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-5)
+    p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
+    wg.propagate_NEE(p)
+    out = capsys.readouterr().out
+    assert "finished" in out and "Total time" in out
+    wg.propagate(p)
+    assert capsys.readouterr().out == ""
+
+
 # ---- #46 ---------------------------------------------------------------------
 
 def test_propagate_without_set_loss_is_lossless(tutorial_grid):

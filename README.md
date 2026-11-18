@@ -102,13 +102,13 @@ step:
 
 | Module | Contents |
 |---|---|
-| `snow.materials` | `refractive_index(material, wl, T)` for every material, with wavelength in m, nm or um |
+| `snow.materials` | `refractive_index(material, wl, T)` for every material, with wavelength in m, nm or um; `available()` lists them, `MATERIALS[name]` gives the source and fitted range, `register` adds your own |
 | `snow.waveguides` | `waveguide` class (`neff`, `beta`, `beta1`, `beta2`/`GVD`, `propagate_NEE`) and the slab solvers |
 | `snow.pulses` | `pulse` class, `gaussian_pulse`, `sech_pulse`, filters, energy/FWHM/PSD helpers, `coherence_g1`, plotting |
-| `snow.nlo` | `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
+| `snow.nlo` | `propagate`, the common propagation core for any medium, and `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
 | `snow.util` | Richardson derivative, dB/cm to 1/m conversion |
 | `snow.crystals` | `nonlinear_crystal` for bulk propagation (experimental) |
-| `snow.opos` | `opo` class for synchronously pumped degenerate OPOs (experimental; built on `crystals`) |
+| `snow.opos` | `opo` class for synchronously pumped degenerate OPOs (experimental); the gain medium can be a crystal or a waveguide |
 | `lumerical.py` | Lumerical MODE geometry and mode-solver scripting, mode overlap helpers |
 
 `crystals` and `opos` are not imported by `import snow`; import them directly.
@@ -124,6 +124,11 @@ step:
   absolute frequencies.
 - Fields vary as exp(i(omega t - beta z)); loss `alpha` is a power attenuation
   coefficient (1/m).
+- Functions that add noise take `rng` (a numpy `Generator` or a seed) for
+  reproducible runs; without it they use numpy's global generator.
+- Problems are reported with Python warnings (e.g. `MaterialRangeWarning`
+  when a material formula is used outside its fitted wavelength range), not
+  printed, so they can be filtered or turned into errors.
 
 [docs/physics.md](docs/physics.md) describes the propagation model, the
 equation the solver integrates, and how the grids, frame and coupling are

@@ -4,13 +4,11 @@
 
 Module to work with bulk crystals instead of waveguides
 """
-import time
 import numpy as np
 from numpy.fft import fftshift
 from scipy.constants import pi, c
 
 from . import nlo
-from . import pulses
 
 class nonlinear_crystal():
     '''
@@ -42,58 +40,37 @@ class nonlinear_crystal():
         self.alpha = alpha
 
     def propagate_NEE_fd(self, pulse, v_ref=None,
-                         verbose=True, z0=0):
+                         verbose=True, z0=0, Qnoise=False,
+                         rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None):
         '''
-        Propagate a pulse through the crystal with `nlo.NEE`.
+        Propagate a pulse through the crystal with `nlo.propagate`.
 
         v_ref defaults to the group velocity at the first FFT bin (the
-        reference frequency). Returns (output pulse, integrator step sizes).
+        reference frequency), from a finite difference of beta on the
+        pulse grid. Returns (output pulse, integrator step sizes).
         '''
-
-        #Timer
-        tic_total = time.time()
-
-        #Get stuff
-        wl = pulse.wl
-        f0 = pulse.f0
         f_abs = pulse.f_abs
-        Omega  = pulse.Omega
-
-        n = self.n_func(wl)
+        n = self.n_func(pulse.wl)
         beta = 2*pi*f_abs*n/c
 
-        if v_ref == None:
+        if v_ref is None:
             df = f_abs[1] - f_abs[0]
             beta_1 = fftshift(np.gradient(fftshift(beta), 2*pi*df))
-            vg = 1/beta_1
-            v_ref = vg[0]
-
-        beta_ref = beta[0]
-        beta_1_ref = 1/v_ref
-        D = beta - beta_ref - Omega/v_ref - 1j*self.alpha/2
+            v_ref = 1/beta_1[0]
 
         chi2 = self.chi2
-        omega_ref = 2*pi*f0
-        omega_abs = omega_ref + Omega
+        omega_abs = 2*pi*pulse.f0 + pulse.Omega
 
         def k(z):
             return chi2(z)*omega_abs/(4*n*c)
 
-        [a, a_evol] = nlo.NEE(t = pulse.t,
-                          x = pulse.a,
-                          Omega = Omega,
-                          f0 = pulse.f0,
-                          L = self.L,
-                          D = D,
-                          b0 = beta_ref,
-                          b1_ref = beta_1_ref,
-                          k = k,
-                          z0 = z0,
-                          verbose = verbose)
+        return nlo.propagate(pulse, self.L, beta, v_ref, k, alpha=self.alpha, z0=z0,
+                             Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
+                             verbose=verbose, rng=rng)
 
-        tdelta = time.time() - tic_total
-        if verbose:
-            print('Total time = %0.1f s' %(tdelta))
-
-        output_pulse = pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep)
-        return output_pulse, a_evol
+    def propagate(self, pulse, v_ref=None, verbose=False, **kwargs):
+        '''
+        Common propagation interface shared with `waveguides.waveguide`
+        (used by `opos.opo`): same as `propagate_NEE_fd`, quiet by default.
+        '''
+        return self.propagate_NEE_fd(pulse, v_ref=v_ref, verbose=verbose, **kwargs)
