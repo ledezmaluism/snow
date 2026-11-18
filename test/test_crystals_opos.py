@@ -20,8 +20,8 @@ def test_linear_crystal_matches_waveguide_with_same_index(tutorial_grid):
     wg.set_loss(0)
     wg.add_poling(lambda z: 1.0)
     wg.set_nonlinear_coeffs(N=1, X0=0.0)
-    v_ref = 1 / wg.beta1(1.5 * um)[0]
-    out_wg, _ = wg.propagate_NEE(p, verbose=False, v_ref=v_ref)
+    v_ref = 1 / wg.beta1(1.5 * um)
+    out_wg, _ = wg.propagate(p, verbose=False, v_ref=v_ref)
 
     xtal = crystals.nonlinear_crystal(L, n_bulk, chi2=lambda z: 0.0)
     out_x, _ = xtal.propagate_NEE_fd(p, v_ref=v_ref, verbose=False)

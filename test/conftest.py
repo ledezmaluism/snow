@@ -62,8 +62,7 @@ def tutorial_grid():
 def make_ext_waveguide(material="LN_MgO_e"):
     """Waveguide whose index is a spline of a bulk material (fast to evaluate)."""
     wl = np.linspace(0.5 * um, 5 * um, 600)  # inside the Zelmon fit range
-    return waveguides.waveguide(external=True, wl_array=wl,
-                                n_array=materials.refractive_index(material, wl))
+    return waveguides.Waveguide(waveguides.TabulatedIndex(wl, materials.refractive_index(material, wl)))
 
 
 @pytest.fixture

@@ -82,7 +82,7 @@ DEFAULT_WG = [
 
 
 def test_default_wg():
-    wg = waveguides.waveguide()
+    wg = waveguides.Waveguide(waveguides.RidgeIndex())
     assert wg.neff(1e-6) == pytest.approx(2.052, rel=1e-3)
     assert wg.beta1(1e-6) * 1e9 == pytest.approx(7.592, rel=1e-3)
     assert wg.beta2(1e-6) * 1e25 == pytest.approx(1.145, rel=1e-3)
@@ -90,67 +90,67 @@ def test_default_wg():
 
 @pytest.mark.parametrize("wl, neff, b1, b2", DEFAULT_WG)
 def test_default_wg_regression(wl, neff, b1, b2):
-    wg = waveguides.waveguide()
-    assert wg.neff(wl)[0] == pytest.approx(neff, rel=1e-10)
-    assert wg.beta1(wl)[0] == pytest.approx(b1, rel=1e-8)
-    assert wg.beta2(wl)[0] == pytest.approx(b2, rel=1e-5)
+    wg = waveguides.Waveguide(waveguides.RidgeIndex())
+    assert wg.neff(wl) == pytest.approx(neff, rel=1e-10)
+    assert wg.beta1(wl) == pytest.approx(b1, rel=1e-8)
+    assert wg.beta2(wl) == pytest.approx(b2, rel=1e-5)
 
 
 def test_other_geometry_regression():
-    wg = waveguides.waveguide(w_top=1.8e-6, h_thinfilm=600e-9, h_etch=300e-9, theta=70,
-                              box_material="Sapphire")
-    assert wg.neff(2e-6)[0] == pytest.approx(1.8661625754684894, rel=1e-10)
-    assert wg.beta1(2e-6)[0] == pytest.approx(7.308825870360717e-09, rel=1e-8)
+    wg = waveguides.Waveguide(waveguides.RidgeIndex(w_top=1.8e-6, h_thinfilm=600e-9, h_etch=300e-9, theta=70,
+                              box_material="Sapphire"))
+    assert wg.neff(2e-6) == pytest.approx(1.8661625754684894, rel=1e-10)
+    assert wg.beta1(2e-6) == pytest.approx(7.308825870360717e-09, rel=1e-8)
 
 
 def test_ridge_neff_between_cladding_and_core():
-    wg = waveguides.waveguide()
+    wg = waveguides.Waveguide(waveguides.RidgeIndex())
     n_core = materials.refractive_index("LN_MgO_e", 1.55)
     n_box = materials.refractive_index("SiO2", 1.55)
-    assert n_box < wg.neff(1.55e-6)[0] < n_core
+    assert n_box < wg.neff(1.55e-6) < n_core
 
 
 def test_neff_increases_with_width():
-    narrow = waveguides.waveguide(w_top=0.8e-6).neff(1.55e-6)[0]
-    wide = waveguides.waveguide(w_top=2.0e-6).neff(1.55e-6)[0]
+    narrow = waveguides.Waveguide(waveguides.RidgeIndex(w_top=0.8e-6)).neff(1.55e-6)
+    wide = waveguides.Waveguide(waveguides.RidgeIndex(w_top=2.0e-6)).neff(1.55e-6)
     assert wide > narrow
 
 
 def test_neff_accepts_arrays():
-    wg = waveguides.waveguide()
+    wg = waveguides.Waveguide(waveguides.RidgeIndex())
     wl = np.array([1.0, 1.55, 2.0]) * 1e-6
     np.testing.assert_allclose(wg.neff(wl), [r[1] for r in DEFAULT_WG], rtol=1e-10)
 
 
 def test_derived_geometry():
-    wg = waveguides.waveguide(w_top=1e-6, h_thinfilm=700e-9, h_etch=350e-9, theta=60)
-    assert wg.h_slab == pytest.approx(350e-9)
-    assert wg.w_base == pytest.approx(1e-6 + 2 * 350e-9 / np.tan(pi / 3))
+    wg = waveguides.Waveguide(waveguides.RidgeIndex(w_top=1e-6, h_thinfilm=700e-9, h_etch=350e-9, theta=60))
+    assert wg.index.h_slab == pytest.approx(350e-9)
+    assert wg.index.w_base == pytest.approx(1e-6 + 2 * 350e-9 / np.tan(pi / 3))
 
 
 def test_invalid_geometry_raises():
     with pytest.raises(ValueError):
-        waveguides.waveguide(theta=120)
+        waveguides.Waveguide(waveguides.RidgeIndex(theta=120))
 
 
 # ---- beta, beta1, beta2 are consistent derivatives --------------------------
 
 @pytest.mark.parametrize("wl", [1.0e-6, 2.0e-6])
 def test_beta1_is_dbeta_domega(wl):
-    wg = waveguides.waveguide()
+    wg = waveguides.Waveguide(waveguides.RidgeIndex())
     dl = 2e-9
-    dbeta = wg.beta(wl + dl)[0] - wg.beta(wl - dl)[0]
+    dbeta = wg.beta(wl + dl) - wg.beta(wl - dl)
     domega = 2 * pi * c / (wl + dl) - 2 * pi * c / (wl - dl)
-    assert wg.beta1(wl)[0] == pytest.approx(dbeta / domega, rel=1e-5)
+    assert wg.beta1(wl) == pytest.approx(dbeta / domega, rel=1e-5)
 
 
 @pytest.mark.parametrize("wl", [1.0e-6, 2.0e-6])
 def test_beta2_is_dbeta1_domega(wl):
     wg = make_ext_waveguide()
     dl = 5e-9
-    db1 = wg.beta1(wl + dl)[0] - wg.beta1(wl - dl)[0]
+    db1 = wg.beta1(wl + dl) - wg.beta1(wl - dl)
     domega = 2 * pi * c / (wl + dl) - 2 * pi * c / (wl - dl)
-    assert wg.beta2(wl)[0] == pytest.approx(db1 / domega, rel=1e-3)
+    assert wg.beta2(wl) == pytest.approx(db1 / domega, rel=1e-3)
 
 
 @pytest.mark.parametrize("wl_um", [1.0, 2.0])
@@ -160,7 +160,7 @@ def test_bulk_group_index_matches_material(wl_um):
     dl = 1e-3
     dn = materials.refractive_index("LN_MgO_e", wl_um + dl) - materials.refractive_index("LN_MgO_e", wl_um - dl)
     ng = materials.refractive_index("LN_MgO_e", wl_um) - wl_um * dn / (2 * dl)
-    assert wg.beta1(wl_um * 1e-6)[0] * c == pytest.approx(ng, rel=1e-5)
+    assert wg.beta1(wl_um * 1e-6) * c == pytest.approx(ng, rel=1e-5)
 
 
 # ---- alternative index models -----------------------------------------------
@@ -176,38 +176,38 @@ def test_external_index_reproduces_table():
 def test_behavioral_model_reproduces_its_inputs():
     z_wl, wl_1, wl_2 = 1.8e-6, 1.0e-6, 2.0e-6
     GVM, delta_n, n_f0, wl_f0 = 50e-15 / 1e-3, -0.05, 2.0, 1.5e-6
-    wg = waveguides.waveguide(behavioral=True, z_wl=z_wl, wl_1=wl_1, wl_2=wl_2,
-                              GVM=GVM, delta_n=delta_n, n_f0=n_f0, wl_f0=wl_f0)
+    wg = waveguides.Waveguide(waveguides.BehavioralIndex(z_wl=z_wl, wl_1=wl_1, wl_2=wl_2,
+                              GVM=GVM, delta_n=delta_n, n_f0=n_f0, wl_f0=wl_f0))
     assert wg.neff(wl_f0) == pytest.approx(n_f0, rel=1e-12)
     assert wg.neff(wl_2) - wg.neff(wl_1) == pytest.approx(delta_n, rel=1e-9)
-    assert wg.beta1(wl_2)[0] - wg.beta1(wl_1)[0] == pytest.approx(GVM, rel=1e-4)
-    assert abs(wg.beta2(z_wl)[0]) < 1e-3 * abs(wg.beta2(wl_1)[0])
+    assert wg.beta1(wl_2) - wg.beta1(wl_1) == pytest.approx(GVM, rel=1e-4)
+    assert abs(wg.beta2(z_wl)) < 1e-3 * abs(wg.beta2(wl_1))
 
 
 def test_behavioral_default_wl_f0_is_midpoint():
-    wg = waveguides.waveguide(behavioral=True, n_f0=2.1)
+    wg = waveguides.Waveguide(waveguides.BehavioralIndex(n_f0=2.1))
     assert wg.neff(1.5e-6) == pytest.approx(2.1, rel=1e-12)
 
 
 # ---- #49: TM, full etch, higher-order slab modes ----------------------------
 
 def test_tm_mode():
-    te = waveguides.waveguide().neff(1e-6)[0]
-    tm = waveguides.waveguide().neff(1e-6, mode="TM")[0]
+    te = waveguides.Waveguide(waveguides.RidgeIndex()).neff(1e-6)
+    tm = waveguides.Waveguide(waveguides.RidgeIndex()).neff(1e-6, mode="TM")
     n_box = materials.refractive_index("SiO2", 1.0)
     # thin film on SiO2 with air above: the TM-like mode is less confined
     assert n_box < tm < te
 
 
 def test_tm_waveguide_option():
-    wg = waveguides.waveguide(mode="TM")
-    assert wg.neff(1e-6)[0] == waveguides.waveguide().neff(1e-6, mode="TM")[0]
-    assert wg.beta1(1e-6)[0] > 0
+    wg = waveguides.Waveguide(waveguides.RidgeIndex(mode="TM"))
+    assert wg.neff(1e-6) == waveguides.Waveguide(waveguides.RidgeIndex()).neff(1e-6, mode="TM")
+    assert wg.beta1(1e-6) > 0
 
 
 def test_invalid_mode_raises():
     with pytest.raises(ValueError):
-        waveguides.waveguide(mode="TEM")
+        waveguides.Waveguide(waveguides.RidgeIndex(mode="TEM"))
     with pytest.raises(ValueError):
         waveguides.neff_ridge(1e-6, 2.1, mode="TEM")
 
@@ -225,11 +225,11 @@ def test_ridge_tm_uses_tm_vertical_and_te_lateral_slabs():
 def test_full_etch(mode):
     n_box = materials.refractive_index("SiO2", 1.0)
     # vertical sidewalls, so the etch depth does not change the mean width
-    full = waveguides.waveguide(h_etch=700e-9, theta=90, mode=mode).neff(1e-6)[0]
-    partial = waveguides.waveguide(h_etch=450e-9, theta=90, mode=mode).neff(1e-6)[0]
+    full = waveguides.Waveguide(waveguides.RidgeIndex(h_etch=700e-9, theta=90, mode=mode)).neff(1e-6)
+    partial = waveguides.Waveguide(waveguides.RidgeIndex(h_etch=450e-9, theta=90, mode=mode)).neff(1e-6)
     assert n_box < full < partial
     # a 2 nm slab guides nothing either: continuous with the full etch
-    near = waveguides.waveguide(h_etch=698e-9, theta=90, mode=mode).neff(1e-6)[0]
+    near = waveguides.Waveguide(waveguides.RidgeIndex(h_etch=698e-9, theta=90, mode=mode)).neff(1e-6)
     assert near == pytest.approx(full, rel=1e-12)
 
 
@@ -311,9 +311,9 @@ def test_propagate_linear_matches_nee_without_nonlinearity(tutorial_grid, v_ref_
     wg.set_loss(5.0)
     wg.add_poling(lambda z: 1.0)
     wg.set_nonlinear_coeffs(N=1, X0=0.0)
-    v_ref = None if v_ref_wl is None else 1 / wg.beta1(v_ref_wl)[0]
+    v_ref = None if v_ref_wl is None else 1 / wg.beta1(v_ref_wl)
     lin = wg.propagate_linear(p, v_ref=v_ref)
-    nee, _ = wg.propagate_NEE(p, v_ref=v_ref, verbose=False)
+    nee, _ = wg.propagate(p, v_ref=v_ref, verbose=False)
     np.testing.assert_allclose(lin.a, nee.a, atol=1e-6 * np.abs(p.a).max())
 
 
@@ -322,8 +322,8 @@ def test_propagate_linear_gvd_broadening(tutorial_grid):
     t, f_ref = tutorial_grid
     tau, wl = 100e-15, 1 * um
     wg = make_ext_waveguide()
-    LD = tau**2 / (4 * np.log(2) * wg.beta2(wl)[0])
+    LD = tau**2 / (4 * np.log(2) * wg.beta2(wl))
     wg.set_length(LD)
     p = pulses.gaussian_pulse(t, tau, f_ref, f0=c / wl, Energy=1e-12, Npwr_dB=300)
-    out = wg.propagate_linear(p, v_ref=1 / wg.beta1(wl)[0])
+    out = wg.propagate_linear(p, v_ref=1 / wg.beta1(wl))
     assert out.width_FWHM() == pytest.approx(np.sqrt(2) * p.width_FWHM(), rel=0.02)

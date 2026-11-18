@@ -1,4 +1,4 @@
-"""Propagation through snow.nlo.NEE, driven by waveguide.propagate_NEE.
+"""Propagation through snow.nlo.NEE, driven by Waveguide.propagate.
 
 All runs use a waveguide whose index is a spline of bulk MgO:LN (fast) and the
 time/frequency grid from tutorial 5.
@@ -41,7 +41,7 @@ def shg_run(tutorial_grid, energy, kg_sign=+1, L=1e-3, seed=1):
     dk = float(wg.beta(1 * um)) - 2 * float(wg.beta(2 * um))
     np.random.seed(seed)
     p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=energy, Npwr_dB=300)
-    out, steps = wg.propagate_NEE(p, verbose=False, Kg=kg_sign * dk, v_ref=1 / wg.beta1(2 * um)[0])
+    out, steps = wg.propagate(p, verbose=False, Kg=kg_sign * dk, v_ref=1 / wg.beta1(2 * um))
     return p, out, steps
 
 
@@ -56,11 +56,11 @@ def test_gvd_broadening_matches_gaussian_formula(tutorial_grid):
     t, f_ref = tutorial_grid
     wl = 1 * um
     wg = linear_wg(1.0)
-    b2 = wg.beta2(wl)[0]
+    b2 = wg.beta2(wl)
     LD = TAU**2 / (4 * np.log(2) * b2)
     wg.set_length(LD)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=c / wl, Energy=1e-12, Npwr_dB=300)
-    out, _ = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(wl)[0])
+    out, _ = wg.propagate(p, verbose=False, v_ref=1 / wg.beta1(wl))
     # A Gaussian broadens by sqrt(1 + (L/LD)^2) = sqrt(2) at one dispersion length
     assert fwhm(out) == pytest.approx(np.sqrt(2) * fwhm(p), rel=0.02)
     assert out.energy_td() == pytest.approx(p.energy_td(), rel=1e-9)
@@ -70,7 +70,7 @@ def test_reference_frame_keeps_pulse_centred(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(2e-3)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=c / (1.5 * um), Energy=1e-12, Npwr_dB=300)
-    out, _ = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(1.5 * um)[0])
+    out, _ = wg.propagate(p, verbose=False, v_ref=1 / wg.beta1(1.5 * um))
     assert abs(out.time_center()) < 2 * fs
 
 
@@ -78,10 +78,10 @@ def test_group_velocity_walk_off(tutorial_grid):
     t, f_ref = tutorial_grid
     L = 0.5e-3
     wg = linear_wg(L)
-    v_ref = 1 / wg.beta1(1.5 * um)[0]
+    v_ref = 1 / wg.beta1(1.5 * um)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=1e-12, Npwr_dB=300)
-    out, _ = wg.propagate_NEE(p, verbose=False, v_ref=v_ref)
-    delay = L * (wg.beta1(2 * um)[0] - 1 / v_ref)
+    out, _ = wg.propagate(p, verbose=False, v_ref=v_ref)
+    delay = L * (wg.beta1(2 * um) - 1 / v_ref)
     assert out.time_center() == pytest.approx(delay, abs=2 * fs)
 
 
@@ -90,7 +90,7 @@ def test_loss(tutorial_grid):
     alpha = util.absorption_coeff(1.0)  # 1 dB/cm
     wg = linear_wg(10e-3, alpha)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=1e-12, Npwr_dB=300)
-    out, _ = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(2 * um)[0])
+    out, _ = wg.propagate(p, verbose=False, v_ref=1 / wg.beta1(2 * um))
     assert out.energy_td() / p.energy_td() == pytest.approx(10**(-1.0 / 10), rel=1e-9)
 
 
@@ -98,8 +98,8 @@ def test_default_v_ref_is_group_velocity_at_reference(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-3)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
-    out_default, _ = wg.propagate_NEE(p, verbose=False)
-    out_explicit, _ = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(c / f_ref)[0])
+    out_default, _ = wg.propagate(p, verbose=False)
+    out_explicit, _ = wg.propagate(p, verbose=False, v_ref=1 / wg.beta1(c / f_ref))
     np.testing.assert_allclose(out_default.a, out_explicit.a, atol=1e-9 * np.abs(p.a).max())
 
 
@@ -107,7 +107,7 @@ def test_quantum_noise_is_half_a_photon_per_mode(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-4)
     vacuum = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
-    out, _ = wg.propagate_NEE(vacuum, verbose=False, Qnoise=True, v_ref=1 / wg.beta1(c / f_ref)[0])
+    out, _ = wg.propagate(vacuum, verbose=False, Qnoise=True, v_ref=1 / wg.beta1(c / f_ref))
     expected = np.sum(h * vacuum.f_abs / 2)
     # NEE rebuilds its grid with BW = f_max - f_min = (N-1)*df, hence ~(N-1)/N
     assert out.energy_td() == pytest.approx(expected, rel=3e-3)
@@ -191,7 +191,7 @@ def square_shg(tutorial_grid, energy, **kw):
     wg.add_poling(lambda z: np.sign(np.cos(dk * z)))
     np.random.seed(1)
     p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=energy, Npwr_dB=300)
-    out, steps = wg.propagate_NEE(p, verbose=False, v_ref=1 / wg.beta1(2 * um)[0], **kw)
+    out, steps = wg.propagate(p, verbose=False, v_ref=1 / wg.beta1(2 * um), **kw)
     return p, out, steps
 
 
@@ -234,7 +234,7 @@ def test_z_breaks_do_not_change_smooth_solution(tutorial_grid):
     wg = shg_wg(1e-3)
     dk = float(wg.beta(1 * um)) - 2 * float(wg.beta(2 * um))
     p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=1e-12, Npwr_dB=300)
-    D, b0, v = wg._linear_operator(p, v_ref=1 / wg.beta1(2 * um)[0])
+    D, b0, v = wg._linear_operator(p, v_ref=1 / wg.beta1(2 * um))
     omega = 2 * pi * p.f_abs
     k = lambda z: (2 / pi) * wg.X0 * omega / 4
     args = dict(t=t, x=p.a, Omega=p.Omega, f0=p.f0, L=wg.L, D=D, b0=b0, b1_ref=1 / v, k=k,
@@ -253,18 +253,17 @@ def test_waveguide_goes_through_nlo_propagate(tutorial_grid, monkeypatch):
     original = nlo.propagate
     monkeypatch.setattr(nlo, "propagate", lambda *a, **k: calls.append(k) or original(*a, **k))
     p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
-    wg.propagate_NEE(p, verbose=False)
     wg.propagate(p)
-    assert len(calls) == 2
+    assert len(calls) == 1
 
 
 def test_quantum_noise_rng_reproducible(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-5)
     p = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
-    a1, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=11)
-    a2, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=11)
-    a3, _ = wg.propagate_NEE(p, verbose=False, Qnoise=True, rng=12)
+    a1, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=11)
+    a2, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=11)
+    a3, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=12)
     np.testing.assert_array_equal(a1.a, a2.a)
     assert not np.allclose(a1.a, a3.a)
 
@@ -273,7 +272,7 @@ def test_verbose_output(tutorial_grid, capsys):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-5)
     p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
-    wg.propagate_NEE(p)
+    wg.propagate(p, verbose=True)
     out = capsys.readouterr().out
     assert "finished" in out and "Total time" in out
     wg.propagate(p)
@@ -289,16 +288,16 @@ def test_propagate_without_set_loss_is_lossless(tutorial_grid):
     wg.add_poling(lambda z: 1.0)
     wg.set_nonlinear_coeffs(N=1, X0=0.0)
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
-    out, _ = wg.propagate_NEE(p, verbose=False)
+    out, _ = wg.propagate(p, verbose=False)
     assert out.energy_td() == pytest.approx(p.energy_td(), rel=1e-9)
 
 
-def test_zcheck_step_is_deprecated(tutorial_grid):
+def test_propagate_needs_a_length(tutorial_grid):
     t, f_ref = tutorial_grid
-    wg = linear_wg(1e-4)
+    wg = make_ext_waveguide()
     p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
-    with pytest.deprecated_call():
-        wg.propagate_NEE(p, verbose=False, zcheck_step=1e-3)
+    with pytest.raises(ValueError, match="length"):
+        wg.propagate(p)
 
 
 def test_default_v_ref_uses_temperature(tutorial_grid, monkeypatch):
@@ -309,5 +308,5 @@ def test_default_v_ref_uses_temperature(tutorial_grid, monkeypatch):
     original = wg.beta1
     monkeypatch.setattr(wg, "beta1", lambda wl, T=24.5: seen.append(T) or original(wl, T=T))
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
-    wg.propagate_NEE(p, verbose=False, T=80)
+    wg.propagate(p, verbose=False, T=80)
     assert seen == [80]
