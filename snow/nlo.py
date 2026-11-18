@@ -15,6 +15,7 @@ import warnings
 
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq
+import scipy.fft as sfft
 from scipy.constants import pi, h
 
 from scipy.integrate import RK45
@@ -122,44 +123,42 @@ def NEE(t, x, Omega, f0,
 
     #Input signal to frequency domain
     A = fft(x + xnoise)
-    Aup = np.zeros( Nup*NFFT ) * 1j
     
     #Upsampled time: same start and spacing dt/Nup as the input grid
     #(linspace(t[0], t[-1]) would stretch the spacing and drift the carrier phase)
     tup = t[0] + np.arange(Nup*NFFT) * (t[1] - t[0]) / Nup
-    phi_1 = 2*pi*f0*tup
+    #carrier phase phi = phi_1 - phi_2 z, split as exp(i phi_1) exp(-i phi_2 z)
+    carrier = np.exp(1j*2*pi*f0*tup)
     phi_2 = b0 - b1_ref*2*pi*f0 + Kg
     
-    #Upsampling stuff
+    #Upsampling buffers: the zero padding in the middle of Aup is never
+    #written, so it stays zero between calls
     M = NFFT*Nup - A.size
-    Xc = np.zeros(M)
     center = A.size // 2 + 1
+    Aup = np.zeros(Nup*NFFT, dtype=complex)
+    F1 = np.zeros(NFFT, dtype=complex)
 
     #Nonlinear function
     def fnl(z, y):
-        phi = phi_1 - phi_2*z
-        
-        #get fast envelope
-        y = y * np.exp(-1j*D*z)
+        #interaction picture -> fast envelope
+        E = np.exp(1j*D*z)
+        y = y / E
         
         #Upsample
         Aup[:center] = y[:center]
-        Aup[center:center+M] = Xc
         Aup[center+M:] = y[center:]
-        aup = ifft(Aup) * Nup
+        aup = sfft.ifft(Aup) * Nup
 
         #Nonlinear stuff
-        xup = aup*(np.cos(phi) + 1j*np.sin(phi))
+        xup = aup * (carrier * np.exp(-1j*phi_2*z))
         f1up = aup*(xup + 2*np.conj(xup))
 
         #Downsample
-        F1 = np.zeros_like(y)
-        F1up = fft(f1up)
+        F1up = sfft.fft(f1up)
         F1[:center] = F1up[:center]
         F1[center:] = F1up[center+M:]
-        F1 = F1 / Nup
 
-        return -1j * k(z) * F1 * np.exp(1j*D*z)
+        return (-1j/Nup) * k(z) * F1 * E
     
     #Integrate segment by segment, restarting at every discontinuity of k(z)
     #so that no step straddles a poling domain wall (#50)
