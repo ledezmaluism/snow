@@ -1,13 +1,257 @@
-# snow: Simulator for Nonlinear Optical Waveguides.
+# snow: Simulator for Nonlinear Optical Waveguides
 
-<img src="/img/snow-logo-1.png" title="snow" alt="snow">
+<img src="img/snow-logo-1.png" title="snow" alt="snow logo" width="400">
 
-## What is snow?
-
-It's a toolbox for the of design of integrated nonlinear optical devices. The original motivation was the simulation of thin-film lithium niobate devices; but other materials and platforms can be included as well.
+snow is a Python toolbox for designing integrated nonlinear optical devices.
+It was written to simulate thin-film lithium niobate (TFLN) waveguides, but the
+material database and the waveguide models can describe other platforms.
 
 It includes:
 
-- A material database with dispersion
-- Tools for simulating waveguide modes
-- Nonlinear pulse propagation
+- **Materials**: refractive indices of LiNbO3 (congruent and MgO-doped, with
+  temperature dependence), LiTaO3, SiO2, sapphire and GaP.
+- **Waveguide dispersion**: effective index, group velocity and GVD of the
+  TE-like or TM-like mode of ridge waveguides, from the geometry (effective index method), from a "behavioral"
+  dispersion model, or from your own mode-solver data.
+- **Nonlinear pulse propagation**: a chi(2) nonlinear envelope equation solver
+  for broadband SHG, SFG, DFG and parametric amplification, with arbitrary
+  poling and optional vacuum noise.
+- **Pulse tools**: Gaussian and sech pulses, energy, FWHM, spectra, filters,
+  coherence and plotting.
+- Experimental: bulk crystals (`snow.crystals`), synchronously pumped OPOs
+  (`snow.opos`), and Lumerical MODE scripting helpers (`snow.lumerical`).
+
+## Installation
+
+snow needs Python 3.10 or newer. From a clone of this repository:
+
+```bash
+git clone https://github.com/ledezmaluism/snow
+cd snow
+pip install -e .                 # library only
+pip install -e ".[tutorials]"    # also colorcet and jupyter, for the tutorials
+pip install -e ".[test]"         # also pytest
+```
+
+The editable install (`-e`) picks up changes when you `git pull`.
+
+## Quick start
+
+Second-harmonic generation of a 100 fs pulse at 2 um in a periodically poled
+TFLN ridge:
+
+```python
+import numpy as np
+from scipy.constants import c
+from snow import pulses, waveguides
+
+# Time/frequency grid covering 0.8-3 um
+f_max, f_min = c/0.8e-6, c/3e-6
+N = 2**10
+dt = 1/(f_max - f_min)
+t = (np.arange(N) - N//2) * dt
+f_ref = (f_max + f_min)/2
+
+# 100 fs, 1 pJ sech pump with its carrier f0 at 2 um
+pump = pulses.sech_pulse(t, 100e-15, f_ref, f0=c/2e-6, Energy=1e-12, frep=250e6)
+
+# 700 nm MgO:LN film, 350 nm etch, 1.8 um wide, 1 mm long
+ridge = waveguides.RidgeIndex(w_top=1.8e-6, h_thinfilm=700e-9, h_etch=350e-9)
+wg = waveguides.Waveguide(ridge, length=1e-3, X0=1.1e-12)
+
+# First-order quasi-phase matching of 2 um -> 1 um
+dk = wg.beta(1e-6) - 2*wg.beta(2e-6)
+print(f"Poling period: {2*np.pi/dk*1e6:.3f} um")
+
+result = wg.propagate(pump, v_ref=1/wg.beta1(1e-6), Kg=dk)
+out = result.pulse
+
+S = np.abs(out.A)**2
+sh = out.f_abs > 1.5*c/2e-6           # everything above 1.5x the pump frequency
+print(f"SH conversion: {S[sh].sum()/S.sum():.1%}")
+print(f"Energy out/in: {out.energy_td()/pump.energy_td():.5f}")
+```
+
+```
+Poling period: 5.179 um
+SH conversion: 41.6%
+Energy out/in: 1.00000
+```
+
+`Kg` replaces the square-wave poling by its first Fourier component (2/pi), so
+the solver can take long steps. For non-uniform poling (chirps, apodization)
+pass a function of z as `poling=` instead. `propagate` then finds the domain
+walls, restarts the integrator at each one and limits the step to a quarter
+of the shortest domain. This is accurate but slower (about 10 s for the 4 mm
+device in tutorial 5, against a fraction of a second with `Kg`).
+
+To follow the pulse along the waveguide, ask for snapshots and plot them:
+
+```python
+from snow import plotting
+result = wg.propagate(pump, v_ref=1/wg.beta1(1e-6), Kg=dk, z_save=np.linspace(0, 1e-3, 41))
+plotting.plot_evolution(result, domain='wavelength')
+```
+
+`result.z` and `result.fields` hold the snapshots; `result.pulse_at(i)` turns
+one into a `Pulse`.
+
+## Tutorials
+
+The notebooks in [`tutorials/`](tutorials) walk through a simulation step by
+step (1-5), then cover specific design topics (6-8):
+
+1. [Introduction](tutorials/1%20Introduction.ipynb): the model, conventions,
+   workflow and references
+2. [Time and frequency grids](tutorials/2%20Time%20and%20Frequency%20Grids.ipynb):
+   choosing the bandwidth, N and the time window
+3. [Pulses](tutorials/3%20Pulses.ipynb): pulse shapes, energy, spectra, chirp,
+   filters
+4. [Waveguides](tutorials/4%20Waveguides.ipynb): effective index, GVM/GVD,
+   linear propagation, dispersion engineering, index models
+5. [SHG](tutorials/5%20SHG.ipynb): a full nonlinear simulation, compared with
+   the undepleted theory, power and poling-period sweeps
+6. [Broadband SHG](tutorials/6%20Broadband%20SHG.ipynb): phase-matching
+   bandwidth, walk-off, a zero-GVM waveguide
+7. [Temperature tuning](tutorials/7%20Temperature%20Tuning.ipynb):
+   temperature-dependent materials, tuning curves, correcting a poling error
+8. [Chirped and apodized poling](tutorials/8%20Chirped%20and%20Apodized%20Poling.ipynb):
+   explicit poling functions checked against the grating transfer function
+
+## Package overview
+
+| Module | Contents |
+|---|---|
+| `snow.materials` | `refractive_index(material, wl, T)` for every material, with wavelength in m, nm or um; `available()` lists them, `MATERIALS[name]` gives the source and fitted range, `register` adds your own |
+| `snow.waveguides` | `Waveguide` (`neff`, `beta`, `beta1`, `beta2`/`GVD`, `propagate`, `propagate_linear`); index models `RidgeIndex`, `BehavioralIndex`, `TabulatedIndex`; the slab solvers |
+| `snow.pulses` | `Pulse`, `gaussian_pulse`, `sech_pulse`, filters, energy/FWHM/PSD helpers, `coherence_g1` |
+| `snow.nlo` | `propagate`, the common propagation core for any medium, `PropagationResult`, and `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
+| `snow.util` | Richardson derivative, dB/cm to 1/m conversion |
+| `snow.plotting` | plots versus time, wavelength or frequency, and `plot_evolution` of z snapshots |
+| `snow.crystals` | `NonlinearCrystal` for bulk propagation (experimental) |
+| `snow.opos` | `OPO` for synchronously pumped degenerate OPOs (experimental); the gain medium can be a crystal or a waveguide |
+| `snow.lumerical` | Lumerical MODE geometry and mode-solver scripting, mode overlap helpers |
+
+`plotting`, `crystals`, `opos` and `lumerical` are not imported by
+`import snow`; import them directly. `import snow` does not load matplotlib.
+
+Dispersion methods return a float for a single wavelength and an array for
+an array of wavelengths.
+
+## Upgrading from 0.1
+
+The 0.1 names still work in this release and raise a `DeprecationWarning`
+saying what to use instead. They will be removed in the next one.
+
+| 0.1 | 0.2 |
+|---|---|
+| `waveguides.waveguide(w_top=..., ...)` | `Waveguide(RidgeIndex(w_top=..., ...))` |
+| `waveguide(behavioral=True, ...)` | `Waveguide(BehavioralIndex(...))` |
+| `waveguide(external=True, wl_array=wl, n_array=n)` | `Waveguide(TabulatedIndex(wl, n))` |
+| `wg.neff(wl)[0]`, `wg.beta1(wl)[0]` | `wg.neff(wl)`, `wg.beta1(wl)` |
+| `wg.propagate_NEE(p, ...)` (verbose by default) | `wg.propagate(p, ...)` (quiet by default) |
+| `out, steps = wg.propagate_NEE(...)` | `out, steps = wg.propagate(...)` still unpacks; `result = wg.propagate(...)` also gives snapshots |
+| `pulses.pulse(...)` | `pulses.Pulse(...)` |
+| `pulses.plot_magsq`, `plot_PSD`, `plot_vs_*` | `snow.plotting.*` (the `Pulse.plot_*` methods are unchanged) |
+| `crystals.nonlinear_crystal`, `.propagate_NEE_fd` | `crystals.NonlinearCrystal`, `.propagate` |
+| `opos.opo(..., h, v_ref, pulse_params)` | `opos.OPO(..., fwhm=, f_ref=, f_pump=, noise_dB=, v_ref=)` |
+| `import lumerical` | `from snow import lumerical` |
+
+`set_length`, `set_loss`, `add_poling` and `set_nonlinear_coeffs` still work;
+the same values can now also be given to the `Waveguide` constructor.
+
+## Conventions and units
+
+- SI units throughout (m, s, Hz, W, J), except that `materials.refractive_index`
+  also accepts nm and um.
+- The time grid `t` is uniform and centred on t = 0.
+- `pulse.a` is the complex envelope in sqrt(W), so `abs(a)**2` is power.
+- `pulse.A = fft(fftshift(a))` is the spectrum, in FFT order. `pulse.f` are
+  frequencies relative to the reference `pulse.f0`, and `pulse.f_abs` are
+  absolute frequencies.
+- Fields vary as exp(i(omega t - beta z)); loss `alpha` is a power attenuation
+  coefficient (1/m).
+- Functions that add noise take `rng` (a numpy `Generator` or a seed) for
+  reproducible runs; without it they use numpy's global generator.
+- Problems are reported with Python warnings (e.g. `MaterialRangeWarning`
+  when a material formula is used outside its fitted wavelength range), not
+  printed, so they can be filtered or turned into errors.
+
+[docs/physics.md](docs/physics.md) describes the propagation model, the
+equation the solver integrates, and how the grids, frame and coupling are
+defined.
+
+## Running the tests
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+The suite runs in a few seconds. Known bugs are tests marked
+`xfail(strict=True)` with the issue number in the reason: they fail today,
+and once a bug is fixed the test passes, which strict mode reports as an
+error until the marker is removed. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Known issues
+
+Open bugs are tracked on the
+[issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
+Open:
+
+- [#52](https://github.com/ledezmaluism/snow/issues/52):
+  `apply_filter(type='butterworth')` applies the phase of a digital filter,
+  which delays the pulse (by more than the window for narrow filters). Use
+  the default `type='ideal'`.
+
+One limitation to keep in mind: `snow.crystals` (and so `snow.opos`) has no
+transverse beam normalization, so its chi(2) value sets the gain only up to
+a scale.
+
+Fixed (see [CHANGELOG.md](CHANGELOG.md)):
+
+- [#40](https://github.com/ledezmaluism/snow/issues/40): a mis-spaced
+  upsampled time grid in the NEE solver affected every nonlinear result
+  before commit 2c1c17b.
+- [#41](https://github.com/ledezmaluism/snow/issues/41): `apply_filter` and
+  `filter_signal` returned the pulse shifted by half a window.
+- [#42](https://github.com/ledezmaluism/snow/issues/42): `pulse(...,
+  domain='Freq')` returned the envelope shifted by half a window.
+- [#43](https://github.com/ledezmaluism/snow/issues/43): `gaussian_pulse` and
+  `sech_pulse` defaulted to a 0 Hz carrier; `f0` now defaults to `f_ref`.
+- [#44](https://github.com/ledezmaluism/snow/issues/44): `width_FWHM` returned
+  an array; `plot_magsq` ignored `t_unit`.
+- [#45](https://github.com/ledezmaluism/snow/issues/45): `propagate_linear`
+  could not run.
+- [#46](https://github.com/ledezmaluism/snow/issues/46): `propagate_NEE`
+  needed `set_loss`, and its default `v_ref` ignored the temperature.
+- [#47](https://github.com/ledezmaluism/snow/issues/47): `snow.opos` could not
+  run; `get_outenergy` returned W instead of J, and the output-power and
+  efficiency plots were swapped.
+- [#48](https://github.com/ledezmaluism/snow/issues/48): `LT_SLT` ignored the
+  temperature, unknown material names crashed, `Air` returned a scalar.
+- [#49](https://github.com/ledezmaluism/snow/issues/49): the waveguide model
+  had no TM mode, failed on fully etched ridges, and the slab solver failed
+  for higher-order modes.
+- [#50](https://github.com/ledezmaluism/snow/issues/50): with a poling
+  function, the solver stepped across domain walls; results were not
+  converged (about 10 % too much SH and 0.3 % energy gain in a 1 mm device).
+- [#51](https://github.com/ledezmaluism/snow/issues/51): the solver's
+  absolute tolerance was in FFT units, so weak components such as a
+  noise-seeded parametric signal were not resolved (20-120 % errors).
+
+## References
+
+The engine solves a frequency-domain form of the nonlinear envelope equation
+described in:
+
+- M. Conforti, F. Baronio, and C. De Angelis, "Nonlinear envelope equation for
+  broadband optical pulses in quadratic media," Phys. Rev. A 81, 053841 (2010).
+- T. Brabec and F. Krausz, "Nonlinear optical pulse propagation in the
+  single-cycle regime," Phys. Rev. Lett. 78, 3282 (1997).
+
+The material models cite their sources in `snow/materials.py`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
