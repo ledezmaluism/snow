@@ -298,7 +298,8 @@ def get_psd(t, x, frep):
 def get_psd_dBm(t, x, frep):
     'Power spectral density in dBm/Hz.'
     Xpsd = get_psd(t, x, frep)
-    Xpsd_dBm = 10*np.log10(Xpsd) + 30
+    with np.errstate(divide='ignore'):  #a zero PSD (e.g. after an ideal filter) is -inf dBm
+        Xpsd_dBm = 10*np.log10(Xpsd) + 30
     return Xpsd_dBm
 
 def _deprecated_plot(name):
