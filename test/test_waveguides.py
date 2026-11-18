@@ -3,7 +3,7 @@ import pytest
 from scipy.constants import c, pi
 
 from snow import waveguides, materials
-from conftest import make_ext_waveguide, um, nm
+from conftest import make_ext_waveguide, um
 
 k0 = lambda wl: 2 * pi / wl
 
@@ -231,6 +231,13 @@ def test_full_etch(mode):
     # a 2 nm slab guides nothing either: continuous with the full etch
     near = waveguides.waveguide(h_etch=698e-9, theta=90, mode=mode).neff(1e-6)[0]
     assert near == pytest.approx(full, rel=1e-12)
+
+
+def test_neff_derivative_helpers_are_deprecated():
+    with pytest.deprecated_call():
+        waveguides.neff_derivative(1.0, 2.2, 1.44, 1.0, 1.5, 0.7, 0.3)
+    with pytest.deprecated_call():
+        waveguides.neff_2derivative(1.0, 2.2, 1.44, 1.0, 1.5, 0.7, 0.3)
 
 
 def test_slab_below_cutoff_uses_cladding_index():

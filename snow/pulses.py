@@ -614,10 +614,3 @@ class pulse:
     
     def temporal_phase(self, unwrap=True, threshold=1e-3):
         return phase( self.a, unwrap=unwrap, threshold=threshold )
-
-def test1():
-    pass
-
-if __name__ == '__main__':
-    test1()
-    

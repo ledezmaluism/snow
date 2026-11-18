@@ -16,7 +16,6 @@ index method. All lengths are in meters.
 import numpy as np
 import time
 import warnings
-from numpy.fft import fftshift
 from scipy.optimize import brentq
 from scipy.constants import pi, c
 from scipy import interpolate
@@ -146,17 +145,6 @@ class waveguide:
 
             neff[kw] = neff_ridge(wl[kw], nridge, nbox, nclad, w, h, hslab, mode)
         return neff
-    
-    # def add_narray(self, wl_abs, T=24.5):
-    #     neff = np.zeros(wl_abs.shape)
-    #     for kw in range(wl_abs.size):
-    #         neff[kw] = self.neff(wl_abs[kw], T=T)
-    #     self.neff_array = neff
-    #     self.beta = 2 * pi * self.neff_array / wl_abs
-        
-    #     f_abs = c / wl_abs
-    #     df = f_abs[1] - f_abs[0]
-    #     self.beta_1 = fftshift(np.gradient(fftshift(self.beta), 2*pi*df))
     
     def neff_interp(self, wl, T=25):
         '''Effective index from the spline of the external table (T is ignored).'''
@@ -621,12 +609,6 @@ def singlemode_asymmetric(n0, n1, n2, wl):
     return d
 
 
-def number_of_modes():
-    '''
-    Returns number of modes supported by a waveguide geometry
-    '''
-    raise NotImplementedError('This function is not implemented yet')
-
 def neff_ridge(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
     Effective index of a ridge with the effective index method.
@@ -675,20 +657,13 @@ def _slab_index(n0, n1, n2, d, wl, mode):
 
 def neff_derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
-    Finds the derivative of neff at given wavelength
+    d n_eff / d wl of `neff_ridge`. Deprecated: use `waveguide.beta1`.
 
-    USAGE:
-	d = neff_derivative(wl, nridge)
-
-    INPUT:
-	wl	- wavelength
-	nridge	- ...
-
-
-    OUTPUT:
-        numpy float neff'
-
+    The step is 1e-3 in the units of `wl`, so this was only meaningful for
+    wavelengths in microns, while `neff_ridge` works in meters.
     '''
+    warnings.warn('neff_derivative is deprecated and will be removed; '
+                  'use waveguide.beta1 instead', DeprecationWarning, stacklevel=2)
     n = 2 #number of extrapolation levels
     wl_step = 0.001 #Initial step size
     def f(wl):
@@ -699,23 +674,15 @@ def neff_derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE
 
 def neff_2derivative(wl, nridge, nbox=1, nclad=1, w=1, h=0.7, hslab=0.1, mode='TE'):
     '''
-    Finds the second derivative of neff at given wavelength
-
-    USAGE:
-	d = neff_derivative(wl, nridge)
-
-    INPUT:
-	wl	- wavelength
-	nridge	- ...
-
-
-    OUTPUT:
-        numpy float neff''
-
+    d^2 n_eff / d wl^2 of `neff_ridge`. Deprecated: use `waveguide.beta2`.
     '''
+    warnings.warn('neff_2derivative is deprecated and will be removed; '
+                  'use waveguide.beta2 instead', DeprecationWarning, stacklevel=2)
     n = 2 #number of extrapolation levels
     wl_step = 0.001 #Initial step size
     def f(wl):
-        return neff_derivative(wl, nridge, nbox, nclad, w, h, hslab, mode)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            return neff_derivative(wl, nridge, nbox, nclad, w, h, hslab, mode)
 
     return util.derivative(f, wl, n, wl_step)

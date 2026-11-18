@@ -23,6 +23,7 @@ dependencies = [
 opo = ["colorcet"]
 tutorials = ["colorcet", "jupyter"]
 test = ["pytest", "colorcet"]
+dev = ["pytest", "colorcet", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/ledezmaluism/snow"
@@ -33,3 +34,12 @@ include = ["snow*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+
+[tool.ruff]
+line-length = 120
+extend-include = ["*.ipynb"]
+extend-exclude = ["tutorials"]
+
+[tool.ruff.lint]
+# pyflakes (unused/undefined names) and syntax errors; style rules come later
+select = ["F", "E9"]

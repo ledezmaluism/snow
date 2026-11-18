@@ -10,15 +10,10 @@ chi(2) value sets the gain only up to a scale. colorcet, if installed, gives
 the spectrum plot its colormap.
 """
 import numpy as np
-from numpy.fft import fft, ifft, fftshift, fftfreq
+from numpy.fft import fft, ifft, fftshift
 import matplotlib.pyplot as plt
-import time
 import math
-from scipy import fftpack as sp
-from scipy import signal
-from matplotlib import cm
 import warnings
-from matplotlib.colors import Normalize
 try:
     import colorcet as cc
     CMAP = cc.cm["rainbow"]
@@ -26,11 +21,9 @@ except ImportError: #optional: only the colormap of plot_3d_spectrum
     CMAP = 'turbo'
 
 #snow modules
-from . import nlo 
 from . import pulses
-from . import materials
 
-from scipy.constants import pi, c, epsilon_0
+from scipy.constants import pi, c
 nm = 1e-9
 um = 1e-6
 mm = 1e-3

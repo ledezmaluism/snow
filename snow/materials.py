@@ -191,6 +191,3 @@ def refractive_index(material, wl, T=24.5):
         raise ValueError(f'unknown material {material!r}')
 
     return n
-
-def extrapolate():
-    pass
