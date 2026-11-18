@@ -75,7 +75,7 @@ print(f"Energy out/in: {out.energy_td()/pump.energy_td():.5f}")
 ```
 Poling period: 5.179 um
 SH conversion: 41.6%
-Energy out/in: 0.99998
+Energy out/in: 1.00000
 ```
 
 `Kg` replaces the square-wave poling by its first Fourier component (2/pi), so
@@ -197,11 +197,18 @@ error until the marker is removed. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Open bugs are tracked on the
 [issue tracker](https://github.com/ledezmaluism/snow/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
-There are none open at the moment. One limitation to keep in mind:
-`snow.crystals` (and so `snow.opos`) has no transverse beam normalization, so
-its chi(2) value sets the gain only up to a scale.
+Open:
 
-Fixed:
+- [#52](https://github.com/ledezmaluism/snow/issues/52):
+  `apply_filter(type='butterworth')` applies the phase of a digital filter,
+  which delays the pulse (by more than the window for narrow filters). Use
+  the default `type='ideal'`.
+
+One limitation to keep in mind: `snow.crystals` (and so `snow.opos`) has no
+transverse beam normalization, so its chi(2) value sets the gain only up to
+a scale.
+
+Fixed (see [CHANGELOG.md](CHANGELOG.md)):
 
 - [#40](https://github.com/ledezmaluism/snow/issues/40): a mis-spaced
   upsampled time grid in the NEE solver affected every nonlinear result
@@ -229,6 +236,9 @@ Fixed:
 - [#50](https://github.com/ledezmaluism/snow/issues/50): with a poling
   function, the solver stepped across domain walls; results were not
   converged (about 10 % too much SH and 0.3 % energy gain in a 1 mm device).
+- [#51](https://github.com/ledezmaluism/snow/issues/51): the solver's
+  absolute tolerance was in FFT units, so weak components such as a
+  noise-seeded parametric signal were not resolved (20-120 % errors).
 
 ## References
 
