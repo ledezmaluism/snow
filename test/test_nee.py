@@ -106,7 +106,7 @@ def test_default_v_ref_is_group_velocity_at_reference(tutorial_grid):
 def test_quantum_noise_is_half_a_photon_per_mode(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-4)
-    vacuum = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
+    vacuum = pulses.Pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
     out, _ = wg.propagate(vacuum, verbose=False, Qnoise=True, v_ref=1 / wg.beta1(c / f_ref))
     expected = np.sum(h * vacuum.f_abs / 2)
     # NEE rebuilds its grid with BW = f_max - f_min = (N-1)*df, hence ~(N-1)/N
@@ -260,7 +260,7 @@ def test_waveguide_goes_through_nlo_propagate(tutorial_grid, monkeypatch):
 def test_quantum_noise_rng_reproducible(tutorial_grid):
     t, f_ref = tutorial_grid
     wg = linear_wg(1e-5)
-    p = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
+    p = pulses.Pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
     a1, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=11)
     a2, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=11)
     a3, _ = wg.propagate(p, verbose=False, Qnoise=True, rng=12)

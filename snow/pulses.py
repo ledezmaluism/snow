@@ -187,7 +187,7 @@ def gaussian_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, 
     Npwr_dB = abs(Npwr_dB)
     Npwr = np.amax(np.abs(x)**2) * 10**( -Npwr_dB/10 )
     n = noise(t, Npwr, rng)
-    return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
+    return Pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
 def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr_dB=100, frep=250e6,
                rng=None):
@@ -204,7 +204,7 @@ def sech_pulse(t, FWHM, f_ref, Energy=None, Ppeak=None, Pavg=None, f0=None, Npwr
     Npwr_dB = abs(Npwr_dB)
     Npwr = np.amax(np.abs(x)**2) * 10**(-Npwr_dB/10 )
     n = noise(t, Npwr, rng)
-    return pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
+    return Pulse(t, x+n, c/f_ref, frep=frep, domain='Time')
 
 def filter_signal(f_abs, X, f0, bw, type='ideal'):
     '''
@@ -431,7 +431,7 @@ def phase(x, unwrap=True, threshold=1e-3):
         p[mask] = np.unwrap(p[mask])
     return p
 
-class pulse:
+class Pulse:
     '''
     A pulse on a time/frequency grid.
 
@@ -507,13 +507,14 @@ class pulse:
             
     def __add__(self, pulse2):
         xsum = self.a + pulse2.a
-        return pulse(self.t, xsum, self.wl0, self.frep)
+        return Pulse(self.t, xsum, self.wl0, self.frep)
     
     def __mul__(self, x):
         if np.isscalar(x):
-            return pulse(self.t, x*self.a, self.wl0, self.frep)
-        elif isinstance(x, pulse):
-            return pulse(self.t, x.a * self.a, self.wl0, self.frep)
+            return Pulse(self.t, x*self.a, self.wl0, self.frep)
+        elif isinstance(x, Pulse):
+            return Pulse(self.t, x.a * self.a, self.wl0, self.frep)
+        return NotImplemented
     
     def __rmul__(self, x):
         return self.__mul__(x)
@@ -618,10 +619,19 @@ class pulse:
         f_abs = self.f_abs
         X = self.A
         filtered, h = filter_signal(f_abs, X, f0, bw, type=type)
-        return pulse(self.t, filtered, self.wl0, self.frep)
+        return Pulse(self.t, filtered, self.wl0, self.frep)
 
     def spectral_phase(self, unwrap=True, threshold=1e-3):
         return phase( self.A, unwrap=unwrap, threshold=threshold )
     
     def temporal_phase(self, unwrap=True, threshold=1e-3):
         return phase( self.a, unwrap=unwrap, threshold=threshold )
+
+
+
+class pulse(Pulse):
+    '''Deprecated: use `Pulse`.'''
+    def __init__(self, *args, **kwargs):
+        warnings.warn('pulses.pulse is deprecated; use pulses.Pulse',
+                      DeprecationWarning, stacklevel=2)
+        super().__init__(*args, **kwargs)

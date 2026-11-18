@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-@author: Luis Ledezma
+Bulk crystals (plane-wave propagation) instead of waveguides.
 
-Module to work with bulk crystals instead of waveguides
+@author: Luis Ledezma
 """
+import warnings
+
 import numpy as np
 from numpy.fft import fftshift
 from scipy.constants import pi, c
 
 from . import nlo
 
-class nonlinear_crystal():
+class NonlinearCrystal:
     '''
     A bulk crystal (plane-wave propagation).
 
@@ -39,9 +41,13 @@ class nonlinear_crystal():
         self.chi2 = chi2
         self.alpha = alpha
 
-    def propagate_NEE_fd(self, pulse, v_ref=None,
-                         verbose=True, z0=0, Qnoise=False,
-                         rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None):
+    @property
+    def length(self):
+        '''Length (m); same as `L`.'''
+        return self.L
+
+    def propagate(self, pulse, v_ref=None, verbose=False, z0=0, Qnoise=False,
+                  rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None):
         '''
         Propagate a pulse through the crystal with `nlo.propagate`.
 
@@ -68,9 +74,16 @@ class nonlinear_crystal():
                              Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
                              verbose=verbose, rng=rng)
 
-    def propagate(self, pulse, v_ref=None, verbose=False, **kwargs):
-        '''
-        Common propagation interface shared with `waveguides.waveguide`
-        (used by `opos.opo`): same as `propagate_NEE_fd`, quiet by default.
-        '''
-        return self.propagate_NEE_fd(pulse, v_ref=v_ref, verbose=verbose, **kwargs)
+    def propagate_NEE_fd(self, pulse, v_ref=None, verbose=True, **kwargs):
+        '''Deprecated: use `propagate` (which is quiet by default).'''
+        warnings.warn('propagate_NEE_fd is deprecated; use propagate (verbose=False by default)',
+                      DeprecationWarning, stacklevel=2)
+        return self.propagate(pulse, v_ref=v_ref, verbose=verbose, **kwargs)
+
+
+class nonlinear_crystal(NonlinearCrystal):
+    '''Deprecated: use `NonlinearCrystal`.'''
+    def __init__(self, *args, **kwargs):
+        warnings.warn('crystals.nonlinear_crystal is deprecated; use crystals.NonlinearCrystal',
+                      DeprecationWarning, stacklevel=2)
+        super().__init__(*args, **kwargs)

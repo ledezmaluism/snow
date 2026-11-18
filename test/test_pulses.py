@@ -78,7 +78,7 @@ def test_rng_none_uses_global_generator(grid):
 
 def test_bad_domain_and_units_raise(gauss):
     with pytest.raises(ValueError, match="domain"):
-        pulses.pulse(gauss.t, gauss.a, gauss.wl0, gauss.frep, domain="Space")
+        pulses.Pulse(gauss.t, gauss.a, gauss.wl0, gauss.frep, domain="Space")
     with pytest.raises(ValueError, match="t_unit"):
         gauss.plot_magsq(t_unit="s")
     with pytest.raises(ValueError, match="f_unit"):
@@ -178,7 +178,7 @@ def test_spectrum_in_dbm(gauss):
 def test_wavelength_sanity_warning(grid):
     t, _ = grid
     with pytest.warns(UserWarning, match="outside the usual range"):
-        pulses.pulse(t, np.zeros(t.size, complex), 100e-6, 1e8)
+        pulses.Pulse(t, np.zeros(t.size, complex), 100e-6, 1e8)
 
 
 # ---- filters -----------------------------------------------------------------
@@ -215,7 +215,7 @@ def test_butterworth_filter_keeps_pulse_in_place(gauss):
 
 def test_frequency_domain_constructor_round_trip(gauss):
     # #42: pulse(..., domain='Freq') is the inverse of pulse.A
-    q = pulses.pulse(gauss.t, gauss.A, gauss.wl0, gauss.frep, domain="Freq")
+    q = pulses.Pulse(gauss.t, gauss.A, gauss.wl0, gauss.frep, domain="Freq")
     np.testing.assert_allclose(q.a, gauss.a, atol=1e-9 * np.abs(gauss.a).max())
     np.testing.assert_allclose(q.A, gauss.A)
 
@@ -298,7 +298,7 @@ def test_width_fwhm_picks_main_peak(grid):
 
 def test_width_fwhm_without_peak_is_nan(grid):
     t, f_ref = grid
-    flat = pulses.pulse(t, np.ones(t.size, complex), c / f_ref, 1e8)
+    flat = pulses.Pulse(t, np.ones(t.size, complex), c / f_ref, 1e8)
     assert np.isnan(flat.width_FWHM())
 
 

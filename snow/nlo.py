@@ -256,4 +256,4 @@ def propagate(pulse, L, beta, v_ref, k, alpha=0, z0=0, Kg=0, Qnoise=False,
                    z_breaks=z_breaks, rng=rng)
     if verbose:
         print('Total time = %0.1f s' %(time.time() - tic))
-    return pulses.pulse(pulse.t, a, pulse.wl0, pulse.frep), steps
+    return pulses.Pulse(pulse.t, a, pulse.wl0, pulse.frep), steps

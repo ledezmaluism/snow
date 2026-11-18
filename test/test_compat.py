@@ -82,3 +82,42 @@ def test_zcheck_step_is_deprecated(tutorial_grid):
     p = pulses.gaussian_pulse(t, 100 * fs, f_ref, Energy=1e-12, Npwr_dB=300)
     with pytest.deprecated_call(match="zcheck_step"), pytest.deprecated_call(match="propagate_NEE"):
         w.propagate_NEE(p, verbose=False, zcheck_step=1e-3)
+
+
+
+# ---- Pulse, NonlinearCrystal and OPO renames -------------------------------------
+
+def test_old_pulse_class(grid):
+    t, f_ref = grid
+    with pytest.deprecated_call(match="Pulse"):
+        p = pulses.pulse(t, np.zeros(t.size, complex), c / f_ref, 1e8)
+    assert isinstance(p, pulses.Pulse)
+
+
+def test_old_crystal_class_and_method(tutorial_grid):
+    from snow import crystals
+    t, f_ref = tutorial_grid
+    n = lambda wl: materials.refractive_index("LN_MgO_e", wl)
+    with pytest.deprecated_call(match="NonlinearCrystal"):
+        x_old = crystals.nonlinear_crystal(1e-4, n, chi2=lambda z: 0.0)
+    x_new = crystals.NonlinearCrystal(1e-4, n, chi2=lambda z: 0.0)
+    p = pulses.gaussian_pulse(t, 100 * fs, f_ref, Energy=1e-12, Npwr_dB=300)
+    with pytest.deprecated_call(match="propagate_NEE_fd"):
+        a, _ = x_old.propagate_NEE_fd(p, verbose=False)
+    b, _ = x_new.propagate(p)
+    np.testing.assert_array_equal(a.a, b.a)
+
+
+def test_old_opo_signature(tutorial_grid):
+    from snow import crystals, opos
+    t, f_ref = tutorial_grid
+    n = lambda wl: materials.refractive_index("LN_MgO_e", wl)
+    xtal = crystals.NonlinearCrystal(1e-3, n, chi2=lambda z: 0.0)
+    args = (xtal, [0.0], np.ones(t.size), 0.5, t, np.array([0.0]), np.array([1e-3]), 250e6)
+    with pytest.deprecated_call(match="OPO"), pytest.deprecated_call(match="pulse_params"), \
+            pytest.deprecated_call(match="h is ignored"):
+        old_opo = opos.opo(*args, 1e-6, None, [100 * fs, f_ref, c / (1 * um), 90], roundtrips=1, numsamp=1)
+    assert isinstance(old_opo, opos.OPO)
+    assert old_opo.pulse_params == [100 * fs, f_ref, c / (1 * um), 90]
+    with pytest.deprecated_call(), pytest.raises(TypeError):
+        opos.opo(*args)

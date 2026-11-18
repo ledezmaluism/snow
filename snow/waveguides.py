@@ -402,7 +402,7 @@ class Waveguide:
         '''
         self._require_length()
         D, _, _ = self._linear_operator(pulse, v_ref=v_ref, T=T)
-        output_pulse = pulses.pulse(pulse.t, pulse.a, pulse.wl0, pulse.frep)
+        output_pulse = pulses.Pulse(pulse.t, pulse.a, pulse.wl0, pulse.frep)
         output_pulse.update_fd(pulse.A * np.exp(-1j*D*self.length))
         return output_pulse
 
