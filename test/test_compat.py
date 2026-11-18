@@ -121,3 +121,14 @@ def test_old_opo_signature(tutorial_grid):
     assert old_opo.pulse_params == [100 * fs, f_ref, c / (1 * um), 90]
     with pytest.deprecated_call(), pytest.raises(TypeError):
         opos.opo(*args)
+
+
+
+def test_top_level_lumerical_module_is_deprecated():
+    import importlib
+    import sys
+    sys.modules.pop("lumerical", None)
+    with pytest.deprecated_call(match="snow import lumerical"):
+        old = importlib.import_module("lumerical")
+    from snow import lumerical as new
+    assert old.field_2D is new.field_2D

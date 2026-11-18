@@ -41,9 +41,9 @@ frequency `f0`. They add white noise `Npwr_dB` below the peak power.
 
 ## Waveguide dispersion
 
-`waveguide.neff(wl)` comes from one of three models:
+`Waveguide(index).neff(wl)` comes from the index model passed in:
 
-1. **Geometry** (default). The effective index method: the ridge region
+1. **`RidgeIndex`** (geometry). The effective index method: the ridge region
    (film thickness) and the slab region (film minus etch) are each solved as
    asymmetric slabs (cladding / film / box) for their fundamental mode. The
    two indices then form a symmetric slab of width (top + base)/2, solved for
@@ -53,14 +53,16 @@ frequency `f0`. They add white noise `Npwr_dB` below the peak power.
    no mode (full etch, or a slab below cut-off) is given the larger of the
    box and cladding indices. With an anisotropic film, choose the material
    for the index along the field (e.g. `LN_MgO_o` for TM in x-cut LN).
-2. **Behavioral**. The GVD is a quadratic in angular frequency,
+2. **`BehavioralIndex`**. The GVD is a quadratic in angular frequency,
    beta2(omega) = c1 (omega - z1)(omega - z2), integrated analytically to
    beta1, beta and n. The integration constants are fixed by a zero-GVD
    wavelength, a GVM between two wavelengths, an index difference and an
    index at one wavelength. This is useful for exploring dispersion
    regimes without committing to a geometry.
-3. **External**. A cubic spline through tabulated (wavelength, n_eff) data,
-   for example from a full-vectorial mode solver.
+3. **`TabulatedIndex`**. A cubic spline through tabulated (wavelength, n_eff)
+   data, for example from a full-vectorial mode solver.
+
+Any object with a method `neff(wl, T=...)` can be used as the index model.
 
 From n_eff:
 
@@ -74,7 +76,7 @@ with derivatives from Richardson extrapolation of central differences
 
 ## Propagation equation
 
-`waveguide.propagate_NEE` integrates, for the spectrum A(Omega, z),
+`Waveguide.propagate` integrates, for the spectrum A(Omega, z),
 
     dA/dz = -i D(Omega) A  -  i k(z, Omega) F{ a^2 e^{i phi} + 2 |a|^2 e^{-i phi} }
 
@@ -88,7 +90,7 @@ with
 - `beta0` is beta at the reference frequency `omega0 = 2 pi f0`.
 - The time axis moves with velocity `v_ref` (by default the group velocity at
   `f0`). Choose it so the pulses of interest stay inside the window, e.g.
-  `v_ref = 1/wg.beta1(wl_sh)[0]` keeps the second harmonic stationary.
+  `v_ref = 1/wg.beta1(wl_sh)` keeps the second harmonic stationary.
 - `alpha` is the power attenuation coefficient: power decays as
   exp(-alpha z). `util.absorption_coeff` converts from dB/cm.
 - The term a^2 e^{i phi} generates sum frequencies (SHG, SFG). The term
@@ -104,7 +106,7 @@ with
   grating wavevector `Kg = 2 pi / period` enters the phase. The integrator can
   then take steps much longer than a domain. Use it for uniform gratings; for
   chirped or apodized poling pass the full `d(z)`.
-- Explicit poling: with `Kg = 0`, `propagate_NEE` samples `d(z)` every
+- Explicit poling: with `Kg = 0`, `propagate` samples `d(z)` every
   `poling_resolution` (10 nm) to find its sign changes, refines them to
   1e-12 m, restarts the integrator at each domain wall and limits the step
   to a quarter of the shortest domain. Without the step limit RK45's error
@@ -120,7 +122,9 @@ positions `z_breaks` are optional). At each evaluation the envelope is zero-padd
 in frequency to a 4x finer time grid (8x if the bandwidth needs it), the
 products are formed there, and the result is truncated back. This removes
 aliasing of the sum-frequency products. The function returns the output
-envelope and the list of step sizes.
+envelope and the list of step sizes, and, with `z_save`, the envelope at
+the requested positions, taken from RK45's dense output (so saving
+snapshots adds no steps and does not change the result).
 
 `Qnoise=True` adds vacuum fluctuations to the input: half a photon,
 h f / 2, of energy per frequency bin, with random phase. This seeds
@@ -130,13 +134,14 @@ generator is used, so `np.random.seed` still works.
 
 `nlo.propagate` wraps `NEE` for any medium: it takes beta on the pulse grid,
 the frame velocity, the loss and the coupling k(z), builds D and returns the
-output pulse. The waveguide and the bulk crystal are thin layers over it,
-and both offer `propagate(pulse, v_ref=...)`, which is what `opos.opo`
-calls, so the OPO gain medium can be either.
+output in a `PropagationResult` (`.pulse`, `.steps`, and `.z`/`.fields` for
+snapshots; it unpacks as `out, steps`). `Waveguide` and `NonlinearCrystal`
+are thin layers over it, and both offer `propagate(pulse, v_ref=...)`, which
+is what `opos.OPO` calls, so the OPO gain medium can be either.
 
 ## Bulk crystals
 
-`crystals.nonlinear_crystal` uses the same solver with beta from a bulk index
+`crystals.NonlinearCrystal` uses the same solver with beta from a bulk index
 function and k = chi2(z) omega / (4 n c). There is no transverse
 normalization, so absolute conversion efficiencies are not meaningful yet.
 Its default `v_ref` comes from a finite difference of beta on the pulse grid,

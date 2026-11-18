@@ -4,8 +4,8 @@ Nonlinear envelope equation (NEE) solver for chi(2) propagation.
 
 `propagate` is the common entry point: a medium supplies its propagation
 constant and coupling, and `propagate` builds the linear operator and calls
-`NEE`. Most users go through `waveguide.propagate_NEE` or
-`nonlinear_crystal.propagate_NEE_fd`. See docs/physics.md for the model and
+`NEE`. Most users go through `Waveguide.propagate` or
+`NonlinearCrystal.propagate`. See docs/physics.md for the model and
 conventions.
 
 @author: Luis Ledezma

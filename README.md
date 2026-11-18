@@ -19,7 +19,7 @@ It includes:
 - **Pulse tools**: Gaussian and sech pulses, energy, FWHM, spectra, filters,
   coherence and plotting.
 - Experimental: bulk crystals (`snow.crystals`), synchronously pumped OPOs
-  (`snow.opos`), and Lumerical MODE scripting helpers (`lumerical.py`).
+  (`snow.opos`), and Lumerical MODE scripting helpers (`snow.lumerical`).
 
 ## Installation
 
@@ -56,16 +56,15 @@ f_ref = (f_max + f_min)/2
 pump = pulses.sech_pulse(t, 100e-15, f_ref, f0=c/2e-6, Energy=1e-12, frep=250e6)
 
 # 700 nm MgO:LN film, 350 nm etch, 1.8 um wide, 1 mm long
-wg = waveguides.waveguide(w_top=1.8e-6, h_thinfilm=700e-9, h_etch=350e-9)
-wg.set_length(1e-3)
-wg.set_loss(0)
-wg.set_nonlinear_coeffs(N=1, X0=1.1e-12)
+ridge = waveguides.RidgeIndex(w_top=1.8e-6, h_thinfilm=700e-9, h_etch=350e-9)
+wg = waveguides.Waveguide(ridge, length=1e-3, X0=1.1e-12)
 
 # First-order quasi-phase matching of 2 um -> 1 um
-dk = wg.beta(1e-6)[0] - 2*wg.beta(2e-6)[0]
+dk = wg.beta(1e-6) - 2*wg.beta(2e-6)
 print(f"Poling period: {2*np.pi/dk*1e6:.3f} um")
 
-out, steps = wg.propagate_NEE(pump, v_ref=1/wg.beta1(1e-6)[0], Kg=dk, verbose=False)
+result = wg.propagate(pump, v_ref=1/wg.beta1(1e-6), Kg=dk)
+out = result.pulse
 
 S = np.abs(out.A)**2
 sh = out.f_abs > 1.5*c/2e-6           # everything above 1.5x the pump frequency
@@ -81,10 +80,21 @@ Energy out/in: 0.99998
 
 `Kg` replaces the square-wave poling by its first Fourier component (2/pi), so
 the solver can take long steps. For non-uniform poling (chirps, apodization)
-pass a function of z to `wg.add_poling` instead. `propagate_NEE` then finds
-the domain walls, restarts the integrator at each one and limits the step to
-a quarter of the shortest domain. This is accurate but slower (about 15 s
-for the 4 mm device in tutorial 5, against a fraction of a second with `Kg`).
+pass a function of z as `poling=` instead. `propagate` then finds the domain
+walls, restarts the integrator at each one and limits the step to a quarter
+of the shortest domain. This is accurate but slower (about 10 s for the 4 mm
+device in tutorial 5, against a fraction of a second with `Kg`).
+
+To follow the pulse along the waveguide, ask for snapshots and plot them:
+
+```python
+from snow import plotting
+result = wg.propagate(pump, v_ref=1/wg.beta1(1e-6), Kg=dk, z_save=np.linspace(0, 1e-3, 41))
+plotting.plot_evolution(result, domain='wavelength')
+```
+
+`result.z` and `result.fields` hold the snapshots; `result.pulse_at(i)` turns
+one into a `Pulse`.
 
 ## Tutorials
 
@@ -103,15 +113,42 @@ step:
 | Module | Contents |
 |---|---|
 | `snow.materials` | `refractive_index(material, wl, T)` for every material, with wavelength in m, nm or um; `available()` lists them, `MATERIALS[name]` gives the source and fitted range, `register` adds your own |
-| `snow.waveguides` | `waveguide` class (`neff`, `beta`, `beta1`, `beta2`/`GVD`, `propagate_NEE`) and the slab solvers |
-| `snow.pulses` | `pulse` class, `gaussian_pulse`, `sech_pulse`, filters, energy/FWHM/PSD helpers, `coherence_g1`, plotting |
-| `snow.nlo` | `propagate`, the common propagation core for any medium, and `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
+| `snow.waveguides` | `Waveguide` (`neff`, `beta`, `beta1`, `beta2`/`GVD`, `propagate`, `propagate_linear`); index models `RidgeIndex`, `BehavioralIndex`, `TabulatedIndex`; the slab solvers |
+| `snow.pulses` | `Pulse`, `gaussian_pulse`, `sech_pulse`, filters, energy/FWHM/PSD helpers, `coherence_g1` |
+| `snow.nlo` | `propagate`, the common propagation core for any medium, `PropagationResult`, and `NEE`, the adaptive chi(2) nonlinear envelope equation solver |
 | `snow.util` | Richardson derivative, dB/cm to 1/m conversion |
-| `snow.crystals` | `nonlinear_crystal` for bulk propagation (experimental) |
-| `snow.opos` | `opo` class for synchronously pumped degenerate OPOs (experimental); the gain medium can be a crystal or a waveguide |
-| `lumerical.py` | Lumerical MODE geometry and mode-solver scripting, mode overlap helpers |
+| `snow.plotting` | plots versus time, wavelength or frequency, and `plot_evolution` of z snapshots |
+| `snow.crystals` | `NonlinearCrystal` for bulk propagation (experimental) |
+| `snow.opos` | `OPO` for synchronously pumped degenerate OPOs (experimental); the gain medium can be a crystal or a waveguide |
+| `snow.lumerical` | Lumerical MODE geometry and mode-solver scripting, mode overlap helpers |
 
-`crystals` and `opos` are not imported by `import snow`; import them directly.
+`plotting`, `crystals`, `opos` and `lumerical` are not imported by
+`import snow`; import them directly. `import snow` does not load matplotlib.
+
+Dispersion methods return a float for a single wavelength and an array for
+an array of wavelengths.
+
+## Upgrading from 0.1
+
+The 0.1 names still work in this release and raise a `DeprecationWarning`
+saying what to use instead. They will be removed in the next one.
+
+| 0.1 | 0.2 |
+|---|---|
+| `waveguides.waveguide(w_top=..., ...)` | `Waveguide(RidgeIndex(w_top=..., ...))` |
+| `waveguide(behavioral=True, ...)` | `Waveguide(BehavioralIndex(...))` |
+| `waveguide(external=True, wl_array=wl, n_array=n)` | `Waveguide(TabulatedIndex(wl, n))` |
+| `wg.neff(wl)[0]`, `wg.beta1(wl)[0]` | `wg.neff(wl)`, `wg.beta1(wl)` |
+| `wg.propagate_NEE(p, ...)` (verbose by default) | `wg.propagate(p, ...)` (quiet by default) |
+| `out, steps = wg.propagate_NEE(...)` | `out, steps = wg.propagate(...)` still unpacks; `result = wg.propagate(...)` also gives snapshots |
+| `pulses.pulse(...)` | `pulses.Pulse(...)` |
+| `pulses.plot_magsq`, `plot_PSD`, `plot_vs_*` | `snow.plotting.*` (the `Pulse.plot_*` methods are unchanged) |
+| `crystals.nonlinear_crystal`, `.propagate_NEE_fd` | `crystals.NonlinearCrystal`, `.propagate` |
+| `opos.opo(..., h, v_ref, pulse_params)` | `opos.OPO(..., fwhm=, f_ref=, f_pump=, noise_dB=, v_ref=)` |
+| `import lumerical` | `from snow import lumerical` |
+
+`set_length`, `set_loss`, `add_poling` and `set_nonlinear_coeffs` still work;
+the same values can now also be given to the `Waveguide` constructor.
 
 ## Conventions and units
 

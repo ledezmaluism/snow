@@ -1,8 +1,8 @@
-"""Pure-numpy parts of lumerical.py (no Lumerical installation needed)."""
+"""Pure-numpy parts of snow.lumerical (no Lumerical installation needed)."""
 import numpy as np
 import pytest
 
-import lumerical
+from snow import lumerical
 
 
 @pytest.fixture
