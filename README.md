@@ -99,14 +99,24 @@ one into a `Pulse`.
 ## Tutorials
 
 The notebooks in [`tutorials/`](tutorials) walk through a simulation step by
-step:
+step (1-5), then cover specific design topics (6-8):
 
-1. [Introduction](tutorials/1%20Introduction.ipynb): workflow and references
-2. [Time and frequency grids](tutorials/2%20Time%20and%20Frequency%20Grids.ipynb)
-3. [Pulses](tutorials/3%20Pulses.ipynb): creating, analyzing and plotting pulses
+1. [Introduction](tutorials/1%20Introduction.ipynb): the model, conventions,
+   workflow and references
+2. [Time and frequency grids](tutorials/2%20Time%20and%20Frequency%20Grids.ipynb):
+   choosing the bandwidth, N and the time window
+3. [Pulses](tutorials/3%20Pulses.ipynb): pulse shapes, energy, spectra, chirp,
+   filters
 4. [Waveguides](tutorials/4%20Waveguides.ipynb): effective index, GVM/GVD,
-   dispersion engineering
-5. [SHG](tutorials/5%20SHG.ipynb): a full nonlinear simulation
+   linear propagation, dispersion engineering, index models
+5. [SHG](tutorials/5%20SHG.ipynb): a full nonlinear simulation, compared with
+   the undepleted theory, power and poling-period sweeps
+6. [Broadband SHG](tutorials/6%20Broadband%20SHG.ipynb): phase-matching
+   bandwidth, walk-off, a zero-GVM waveguide
+7. [Temperature tuning](tutorials/7%20Temperature%20Tuning.ipynb):
+   temperature-dependent materials, tuning curves, correcting a poling error
+8. [Chirped and apodized poling](tutorials/8%20Chirped%20and%20Apodized%20Poling.ipynb):
+   explicit poling functions checked against the grating transfer function
 
 ## Package overview
 
