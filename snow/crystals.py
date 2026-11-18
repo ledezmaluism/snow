@@ -47,7 +47,7 @@ class NonlinearCrystal:
         return self.L
 
     def propagate(self, pulse, v_ref=None, verbose=False, z0=0, Qnoise=False,
-                  rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None, z_save=None):
+                  rtol=1e-4, atol=1e-10, max_step=np.inf, rng=None, z_save=None):
         '''
         Propagate a pulse through the crystal with `nlo.propagate`.
 

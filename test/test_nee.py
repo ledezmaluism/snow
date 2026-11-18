@@ -369,3 +369,50 @@ def test_default_v_ref_uses_temperature(tutorial_grid, monkeypatch):
     p = pulses.gaussian_pulse(t, TAU, f_ref, f0=f_ref, Energy=1e-12, Npwr_dB=300)
     wg.propagate(p, verbose=False, T=80)
     assert seen == [80]
+
+
+
+def _bulk_opg_signal(**tol):
+    # #51: 1 mm bulk MgO:LN pumped at 1 um; the 2 um signal grows from the
+    # pump's noise floor and carries ~1e-9 of the energy
+    from snow import crystals, materials
+    f_max, f_min = c / 0.8e-6, c / 3e-6
+    N = 2**9
+    dt = 1 / (f_max - f_min)
+    t = (np.arange(N) - N // 2) * dt
+    f_ref = (f_max + f_min) / 2
+    x = crystals.NonlinearCrystal(1e-3, lambda wl: materials.refractive_index("LN_MgO_e", wl),
+                                  chi2=lambda z: 1e-3 * np.cos(4.0e6 * z))
+    p = pulses.sech_pulse(t, 100e-15, f_ref, f0=c / 1e-6, Pavg=0.05, frep=250e6, rng=2)
+    out = x.propagate(p, **tol).pulse
+    S = np.abs(out.A)**2
+    return S[out.f_abs < 0.75 * c / 1e-6].sum() / S.sum()
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("rtol", [1e-4, 1e-6])
+def test_default_atol_resolves_noise_seeded_signal(rtol):
+    # #51: with atol absolute in FFT units the signal was off by 20-120 %
+    # (by chance less at rtol=1e-4: the error was erratic, not small)
+    default = _bulk_opg_signal(rtol=rtol)
+    tight = _bulk_opg_signal(rtol=1e-10, atol=1e-14)
+    assert default == pytest.approx(tight, rel=0.03)
+
+
+@pytest.mark.slow
+def test_weak_shg_scales_with_pump_energy(tutorial_grid):
+    # #51: undepleted SHG converts a fraction proportional to the pump energy.
+    # With atol absolute in FFT units, a weak pump sat below the tolerance and
+    # the integrator coasted through in one or two steps.
+    _, out1, _ = shg_run(tutorial_grid, 1e-18, L=4e-3)
+    _, out2, _ = shg_run(tutorial_grid, 1e-16, L=4e-3)
+    #pump depletion at the higher energy accounts for ~3e-4
+    assert sh_fraction(out2) / sh_fraction(out1) == pytest.approx(100, rel=2e-3)
+
+
+def test_zero_input_propagates(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = shg_wg()
+    p = pulses.Pulse(t, np.zeros(t.size, complex), c / f_ref, 250e6)
+    out = wg.propagate(p, Kg=1e6).pulse
+    assert np.all(out.a == 0)

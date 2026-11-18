@@ -407,7 +407,7 @@ class Waveguide:
         return output_pulse
 
     def propagate(self, pulse, v_ref=None, verbose=False, z0=0, T=24.5, Kg=0,
-                  Qnoise=False, rtol=1e-4, atol=1e-4, max_step=None,
+                  Qnoise=False, rtol=1e-4, atol=1e-10, max_step=None,
                   poling_resolution=10e-9, rng=None, z_save=None):
         '''
         Propagate a pulse through the waveguide with the chi(2) nonlinear
@@ -437,7 +437,9 @@ class Waveguide:
             Random generator or seed for the vacuum noise (None: numpy's
             global generator).
         rtol, atol : float
-            Tolerances of the adaptive RK45 integrator. Tighten them to check
+            Tolerances of the adaptive RK45 integrator. `atol` is a fraction
+            of the input's peak spectral amplitude (see `nlo.NEE`), so it does
+            not depend on the pulse power or the grid. Tighten them to check
             that a result is converged.
         max_step : float or None
             Largest integration step (m). Default: a quarter of the shortest

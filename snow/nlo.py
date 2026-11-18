@@ -25,7 +25,7 @@ from . import pulses
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         z0=0, verbose=True, Kg=0, Qnoise=False,
-        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None, rng=None,
+        rtol=1e-4, atol=1e-10, max_step=np.inf, z_breaks=None, rng=None,
         z_save=None):
     """
     Integrate the chi(2) nonlinear envelope equation from z0 to L.
@@ -76,7 +76,13 @@ def NEE(t, x, Omega, f0,
         Add vacuum noise (half a photon per frequency bin, random phase)
         to the input.
     rtol, atol : float, optional
-        Relative and absolute tolerances of the RK45 integrator.
+        Tolerances of the RK45 integrator. The state is normalized by the
+        peak spectral amplitude of the input, so `atol` is a fraction of
+        that peak and the result does not depend on the pulse power or the
+        grid size. Each frequency bin must satisfy
+        |error| <= atol + rtol |A| (in units of the peak). The default
+        atol = 1e-10 resolves components down to about 1e-5 of the peak
+        amplitude, such as a parametric signal growing from noise (#51).
     max_step : float, optional
         Largest step the integrator may take (m).
     z_breaks : array, optional
@@ -165,6 +171,15 @@ def NEE(t, x, Omega, f0,
         F1[center:] = F1up[center+M:]
 
         return (-1j/Nup) * k(z) * F1 * E
+
+    #Integrate the state in units of the input's peak spectral amplitude,
+    #so that atol is relative to the pulse, not to the FFT scaling (#51)
+    scale = np.amax(np.abs(A))
+    if scale == 0:
+        scale = 1.0
+
+    def fnl_scaled(z, u):
+        return fnl(z, u*scale) / scale
     
     #Integrate segment by segment, restarting at every discontinuity of k(z)
     #so that no step straddles a poling domain wall (#50)
@@ -190,22 +205,22 @@ def NEE(t, x, Omega, f0,
         while j < zs.size and zs[j] <= za:
             ys[j] = y
             j += 1
-        Integrator = RK45( fnl, za, y, zb, rtol=rtol, atol=atol, max_step=max_step )
+        Integrator = RK45( fnl_scaled, za, y/scale, zb, rtol=rtol, atol=atol, max_step=max_step )
         while Integrator.status == "running":
             Integrator.step()
             steps.append( Integrator.step_size )
             if j < zs.size and zs[j] <= Integrator.t:
                 dense = Integrator.dense_output()
                 while j < zs.size and zs[j] <= Integrator.t:
-                    ys[j] = dense(zs[j])
+                    ys[j] = dense(zs[j]) * scale
                     j += 1
+        y = Integrator.y * scale
         if Integrator.status == 'failed':
             status = 'failed'
             warnings.warn(f'NEE: the integrator failed at z = {Integrator.t:.6g} m '
                           f'({Integrator.message}); the output is the field there',
                           RuntimeWarning, stacklevel=2)
             break
-        y = Integrator.y
     if status == 'finished':
         while j < zs.size: #points at L lost to rounding
             ys[j] = y
@@ -299,7 +314,7 @@ class PropagationResult:
 
 
 def propagate(pulse, L, beta, v_ref, k, alpha=0, z0=0, Kg=0, Qnoise=False,
-              rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None,
+              rtol=1e-4, atol=1e-10, max_step=np.inf, z_breaks=None,
               verbose=True, rng=None, z_save=None):
     '''
     Propagate a pulse through any chi(2) medium with `NEE`.

@@ -117,8 +117,18 @@ with
 
 `nlo.NEE` works in the interaction picture, y = A e^{iDz}, so the linear part
 is exact and only the nonlinear term is integrated, with scipy's adaptive
-`RK45` (`rtol` and `atol` default to 1e-4; `max_step` and the restart
-positions `z_breaks` are optional). At each evaluation the envelope is zero-padded
+`RK45` (`max_step` and the restart positions `z_breaks` are optional).
+
+The integrated state is y divided by the peak of |A| at the input, so the
+tolerances do not depend on the pulse power or on the FFT scaling (which
+grows with N). Each frequency bin must satisfy |error| <= atol + rtol |y|.
+The defaults are `rtol = 1e-4` and `atol = 1e-10`: the absolute part
+resolves components down to about 1e-5 of the peak amplitude (1e-10 in
+power), such as a parametric signal growing from noise. A looser `atol`
+lets the integrator ignore weak bins entirely; with `atol = 1e-4` (relative)
+the noise-seeded signal of a 1 mm bulk OPG run was wrong by a factor of 30.
+
+At each evaluation the envelope is zero-padded
 in frequency to a 4x finer time grid (8x if the bandwidth needs it), the
 products are formed there, and the result is truncated back. This removes
 aliasing of the sum-frequency products. The function returns the output
