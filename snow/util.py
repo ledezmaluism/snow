@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 25 16:29:38 2020
+Small numerical helpers.
 
 @author: Luis Ledezma
 """
@@ -8,15 +8,22 @@ Created on Wed Mar 25 16:29:38 2020
 import numpy as np
 
 def sech(x):
+    '''Hyperbolic secant, 1/cosh(x).'''
     return 1/np.cosh(x)
 
 def check(value, ll, ul):
+    '''True if ll <= value <= ul.'''
     if ll <= value <= ul:
         return True
     return False
 
 def absorption_coeff(Alpha):
-    # convert from dB/cm to 1/m
+    '''
+    Convert a power loss in dB/cm to the attenuation coefficient alpha in 1/m.
+
+    alpha is defined so that power decays as exp(-alpha*z); this is the value
+    `waveguide.set_loss` expects. 1 dB/cm gives 23.03 /m.
+    '''
     alpha = np.log((10**(Alpha * 0.1))) * 100
     return alpha
 
@@ -53,7 +60,8 @@ def derivative( f, x, n, h ):
     d = np.array( [[0] * (n + 1)] * (n + 1), float )
 
     for i in range( n + 1 ):
-        d[i,0] = 0.5 * ( f( x + h ) - f( x - h ) ) / h
+        val = 0.5 * ( f( x + h ) - f( x - h ) ) / h
+        d[i,0] = val.item() if hasattr(val, 'item') else val
 
         powerOf4 = 1  # values of 4^j
         for j in range( 1, i + 1 ):
