@@ -408,7 +408,7 @@ class Waveguide:
 
     def propagate(self, pulse, v_ref=None, verbose=False, z0=0, T=24.5, Kg=0,
                   Qnoise=False, rtol=1e-4, atol=1e-4, max_step=None,
-                  poling_resolution=10e-9, rng=None):
+                  poling_resolution=10e-9, rng=None, z_save=None):
         '''
         Propagate a pulse through the waveguide with the chi(2) nonlinear
         envelope equation (`nlo.propagate`).
@@ -452,12 +452,15 @@ class Waveguide:
             shorter than about twice this are missed. Only sign changes are
             treated as discontinuities; for other jumps set `max_step`.
             None disables the search.
+        z_save : array, optional
+            Positions (m) at which to keep snapshots of the field, e.g.
+            ``np.linspace(0, wg.length, 50)``.
 
         Returns
         -------
-        output_pulse : pulses.pulse
-        steps : array
-            Integrator step sizes (m), not the field evolution.
+        nlo.PropagationResult
+            ``.pulse`` (output), ``.steps``, and ``.z``/``.fields`` for the
+            snapshots. Unpacks as ``out, steps = wg.propagate(p)``.
         '''
         self._require_length()
         beta, v_ref = self._beta_and_frame(pulse, v_ref, T)
@@ -483,7 +486,7 @@ class Waveguide:
         return nlo.propagate(pulse, self.length, beta, v_ref, k, alpha=self.alpha, z0=z0,
                              Kg=Kg, Qnoise=Qnoise, rtol=rtol, atol=atol,
                              max_step=max_step, z_breaks=z_breaks,
-                             verbose=verbose, rng=rng)
+                             verbose=verbose, rng=rng, z_save=z_save)
 
     def propagate_NEE(self, pulse, v_ref=None, verbose=True, zcheck_step=None, **kwargs):
         '''Deprecated: use `propagate` (which is quiet by default).'''

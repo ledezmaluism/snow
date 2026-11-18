@@ -244,6 +244,65 @@ def test_z_breaks_do_not_change_smooth_solution(tutorial_grid):
     np.testing.assert_allclose(a2, a1, atol=1e-5 * np.abs(a1).max())
 
 
+# ---- result object and snapshots --------------------------------------------
+
+def test_result_unpacks_like_old_tuple(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-4)
+    p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
+    res = wg.propagate(p)
+    out, steps = res
+    assert out is res.pulse and steps is res.steps
+    assert res[0] is out and len(res) == 2
+    assert res.z.size == 0 and res.fields.shape == (0, t.size)
+    assert "steps" in repr(res)
+
+
+def test_snapshots_match_separate_runs(tutorial_grid):
+    t, f_ref = tutorial_grid
+    p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=10e-12, Npwr_dB=300)
+    wg = shg_wg(1e-3)
+    dk = wg.beta(1 * um) - 2 * wg.beta(2 * um)
+    v = 1 / wg.beta1(2 * um)
+    kw = dict(Kg=dk, v_ref=v, rtol=1e-8, atol=1e-8)
+    zs = [0.0, 0.3e-3, 0.7e-3, 1e-3]
+    res = wg.propagate(p, z_save=zs, **kw)
+    np.testing.assert_array_equal(res.z, zs)
+    np.testing.assert_allclose(res.fields[0], p.a, atol=1e-12 * np.abs(p.a).max())
+    np.testing.assert_allclose(res.fields[-1], res.pulse.a, atol=1e-9 * np.abs(p.a).max())
+    for z in (0.3e-3, 0.7e-3):
+        wg.set_length(z)
+        direct, _ = wg.propagate(p, **kw)
+        i = zs.index(z)
+        np.testing.assert_allclose(res.fields[i], direct.a, atol=1e-5 * np.abs(p.a).max())
+    # SH builds up monotonically, energy conserved at every snapshot
+    sh = [sh_fraction(res.pulse_at(i)) for i in range(len(zs))]
+    assert np.all(np.diff(sh) > 0)
+    np.testing.assert_allclose(res.energies, p.energy_td(), rtol=1e-6)
+    np.testing.assert_allclose(res.spectra[2], res.pulse_at(2).A)
+
+
+def test_snapshots_across_domain_walls(tutorial_grid):
+    t, f_ref = tutorial_grid
+    _, out, _ = square_shg(tutorial_grid, 1e-12)
+    wg = shg_wg(1e-3)
+    dk = wg.beta(1 * um) - 2 * wg.beta(2 * um)
+    wg.add_poling(lambda z: np.sign(np.cos(dk * z)))
+    np.random.seed(1)
+    p = pulses.sech_pulse(t, TAU, f_ref, f0=c / (2 * um), Energy=1e-12, Npwr_dB=300)
+    res = wg.propagate(p, v_ref=1 / wg.beta1(2 * um), z_save=np.linspace(0, 1e-3, 11))
+    np.testing.assert_array_equal(res.pulse.a, out.a)  # snapshots do not change the run
+    assert res.fields.shape == (11, t.size) and np.all(np.isfinite(res.fields))
+
+
+def test_z_save_outside_range_raises(tutorial_grid):
+    t, f_ref = tutorial_grid
+    wg = linear_wg(1e-4)
+    p = pulses.gaussian_pulse(t, TAU, f_ref, Energy=1e-12, Npwr_dB=300)
+    with pytest.raises(ValueError, match="z_save"):
+        wg.propagate(p, z_save=[2e-4])
+
+
 # ---- shared propagation core --------------------------------------------------
 
 def test_waveguide_goes_through_nlo_propagate(tutorial_grid, monkeypatch):

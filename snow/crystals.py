@@ -47,13 +47,14 @@ class NonlinearCrystal:
         return self.L
 
     def propagate(self, pulse, v_ref=None, verbose=False, z0=0, Qnoise=False,
-                  rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None):
+                  rtol=1e-4, atol=1e-4, max_step=np.inf, rng=None, z_save=None):
         '''
         Propagate a pulse through the crystal with `nlo.propagate`.
 
         v_ref defaults to the group velocity at the first FFT bin (the
         reference frequency), from a finite difference of beta on the
-        pulse grid. Returns (output pulse, integrator step sizes).
+        pulse grid. Returns an `nlo.PropagationResult`, which unpacks as
+        (output pulse, integrator step sizes); `z_save` adds snapshots.
         '''
         f_abs = pulse.f_abs
         n = self.n_func(pulse.wl)
@@ -72,7 +73,7 @@ class NonlinearCrystal:
 
         return nlo.propagate(pulse, self.L, beta, v_ref, k, alpha=self.alpha, z0=z0,
                              Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
-                             verbose=verbose, rng=rng)
+                             verbose=verbose, rng=rng, z_save=z_save)
 
     def propagate_NEE_fd(self, pulse, v_ref=None, verbose=True, **kwargs):
         '''Deprecated: use `propagate` (which is quiet by default).'''

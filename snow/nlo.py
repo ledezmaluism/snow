@@ -25,7 +25,8 @@ from . import pulses
 def NEE(t, x, Omega, f0,
         L, D, b0, b1_ref, k, 
         z0=0, verbose=True, Kg=0, Qnoise=False,
-        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None, rng=None):
+        rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None, rng=None,
+        z_save=None):
     """
     Integrate the chi(2) nonlinear envelope equation from z0 to L.
 
@@ -85,14 +86,19 @@ def NEE(t, x, Omega, f0,
     rng : numpy Generator, int or None, optional
         Random generator (or seed) for the vacuum noise. None uses numpy's
         global generator, as before.
+    z_save : array, optional
+        Positions (m) in [z0, L] at which to record the envelope, from the
+        integrator's dense output (no extra steps).
 
     Returns
     -------
     a : array
         Output envelope in the time domain.
     steps : array
-        Step sizes (m) taken by the integrator. Callers call this
-        `a_evol` for historical reasons; it is not the field evolution.
+        Step sizes (m) taken by the integrator.
+    (z, fields) : only with z_save
+        The sorted positions and the time-domain envelopes there,
+        shape (len(z), N).
     """
     #Get stuff
     NFFT = t.size
@@ -167,14 +173,32 @@ def NEE(t, x, Omega, f0,
         edges += sorted(zb for zb in np.unique(z_breaks) if z0 < zb < L)
     edges.append(L)
 
+    #Snapshots: interaction-picture state y at each requested z
+    if z_save is not None:
+        zs = np.sort(np.atleast_1d(np.asarray(z_save, dtype=float)))
+        if zs.size and (zs[0] < z0 or zs[-1] > L):
+            raise ValueError(f'z_save must lie within [{z0}, {L}] m')
+        ys = np.full((zs.size, NFFT), np.nan, dtype=complex)
+    else:
+        zs = np.empty(0)
+    j = 0 #next snapshot to fill
+
     y = A
     steps = []
     status = 'finished'
     for za, zb in zip(edges[:-1], edges[1:]):
+        while j < zs.size and zs[j] <= za:
+            ys[j] = y
+            j += 1
         Integrator = RK45( fnl, za, y, zb, rtol=rtol, atol=atol, max_step=max_step )
         while Integrator.status == "running":
             Integrator.step()
             steps.append( Integrator.step_size )
+            if j < zs.size and zs[j] <= Integrator.t:
+                dense = Integrator.dense_output()
+                while j < zs.size and zs[j] <= Integrator.t:
+                    ys[j] = dense(zs[j])
+                    j += 1
         if Integrator.status == 'failed':
             status = 'failed'
             warnings.warn(f'NEE: the integrator failed at z = {Integrator.t:.6g} m '
@@ -182,6 +206,10 @@ def NEE(t, x, Omega, f0,
                           RuntimeWarning, stacklevel=2)
             break
         y = Integrator.y
+    if status == 'finished':
+        while j < zs.size: #points at L lost to rounding
+            ys[j] = y
+            j += 1
     steps = np.array(steps)
 
     if verbose:    
@@ -189,8 +217,11 @@ def NEE(t, x, Omega, f0,
     
     A = y * np.exp(-1j*D*Integrator.t)
     a = ifft(A)
-    
-    return a, steps
+
+    if z_save is None:
+        return a, steps
+    fields = ifft(ys * np.exp(-1j*D[np.newaxis, :]*zs[:, np.newaxis]), axis=1)
+    return a, steps, (zs, fields)
 
 
 def random_source(rng=None):
@@ -215,19 +246,71 @@ def linear_operator(pulse, beta, alpha, v_ref):
     return D, beta_ref
 
 
+class PropagationResult:
+    '''
+    Result of a propagation.
+
+    Attributes
+    ----------
+    pulse : pulses.Pulse
+        Output pulse.
+    steps : array
+        Integrator step sizes (m).
+    z : array
+        Positions (m) of the saved snapshots (empty without z_save).
+    fields : array
+        Time-domain envelopes at `z`, shape (len(z), N), in sqrt(W).
+
+    It unpacks like the old ``(pulse, steps)`` tuple:
+    ``out, steps = wg.propagate(p)``.
+    '''
+    def __init__(self, pulse, steps, z=None, fields=None):
+        self.pulse = pulse
+        self.steps = steps
+        self.z = np.empty(0) if z is None else z
+        self.fields = np.empty((0, pulse.NFFT), dtype=complex) if fields is None else fields
+
+    def __iter__(self):
+        return iter((self.pulse, self.steps))
+
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, i):
+        return (self.pulse, self.steps)[i]
+
+    @property
+    def spectra(self):
+        '''Spectra at `z`, same convention as `Pulse.A` (FFT order).'''
+        return np.fft.fft(np.fft.fftshift(self.fields, axes=1), axis=1)
+
+    @property
+    def energies(self):
+        '''Pulse energy (J) at each `z`.'''
+        return np.sum(np.abs(self.fields)**2, axis=1) * self.pulse.dt
+
+    def pulse_at(self, i):
+        '''Snapshot i as a `Pulse` on the same grid.'''
+        return pulses.Pulse(self.pulse.t, self.fields[i], self.pulse.wl0, self.pulse.frep)
+
+    def __repr__(self):
+        return (f'PropagationResult({self.steps.size} steps, '
+                f'{self.z.size} snapshots, energy {self.pulse.energy_td():.4g} J)')
+
+
 def propagate(pulse, L, beta, v_ref, k, alpha=0, z0=0, Kg=0, Qnoise=False,
               rtol=1e-4, atol=1e-4, max_step=np.inf, z_breaks=None,
-              verbose=True, rng=None):
+              verbose=True, rng=None, z_save=None):
     '''
     Propagate a pulse through any chi(2) medium with `NEE`.
 
-    This is the common core of `waveguide.propagate_NEE` and
-    `nonlinear_crystal.propagate_NEE_fd`; a medium only has to supply its
+    This is the common core of `Waveguide.propagate` and
+    `NonlinearCrystal.propagate`; a medium only has to supply its
     propagation constant on the pulse grid and its coupling.
 
     Parameters
     ----------
-    pulse : pulses.pulse
+    pulse : pulses.Pulse
     L : float
         End position (m).
     beta : array
@@ -240,20 +323,23 @@ def propagate(pulse, L, beta, v_ref, k, alpha=0, z0=0, Kg=0, Qnoise=False,
         frequency).
     alpha : float
         Power attenuation coefficient (1/m).
+    z_save : array, optional
+        Positions (m) at which to keep snapshots of the field.
     The other arguments are passed to `NEE`.
 
     Returns
     -------
-    output_pulse : pulses.pulse
-    steps : array
-        Integrator step sizes (m).
+    PropagationResult
+        Unpacks as ``(output_pulse, steps)``.
     '''
     tic = time.time()
     D, beta_ref = linear_operator(pulse, beta, alpha, v_ref)
-    a, steps = NEE(t=pulse.t, x=pulse.a, Omega=pulse.Omega, f0=pulse.f0, L=L,
-                   D=D, b0=beta_ref, b1_ref=1/v_ref, k=k, z0=z0, verbose=verbose,
-                   Kg=Kg, Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
-                   z_breaks=z_breaks, rng=rng)
+    out = NEE(t=pulse.t, x=pulse.a, Omega=pulse.Omega, f0=pulse.f0, L=L,
+              D=D, b0=beta_ref, b1_ref=1/v_ref, k=k, z0=z0, verbose=verbose,
+              Kg=Kg, Qnoise=Qnoise, rtol=rtol, atol=atol, max_step=max_step,
+              z_breaks=z_breaks, rng=rng, z_save=z_save)
     if verbose:
         print('Total time = %0.1f s' %(time.time() - tic))
-    return pulses.Pulse(pulse.t, a, pulse.wl0, pulse.frep), steps
+    a, steps = out[0], out[1]
+    z, fields = out[2] if z_save is not None else (None, None)
+    return PropagationResult(pulses.Pulse(pulse.t, a, pulse.wl0, pulse.frep), steps, z, fields)
