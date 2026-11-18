@@ -19,7 +19,6 @@ import warnings
 
 import numpy as np
 from numpy.fft import fft, ifft, fftshift, fftfreq
-import matplotlib.pyplot as plt
 import scipy.signal
 from scipy.constants import pi, c
 
@@ -302,111 +301,22 @@ def get_psd_dBm(t, x, frep):
     Xpsd_dBm = 10*np.log10(Xpsd) + 30
     return Xpsd_dBm
 
-def plot_vs_time(t, x, ylabel='', t_unit='ps', ax=None):
-    '''
-    Private function to plot stuff x vs time (fs)
-    '''
-    if t_unit=='ps':
-        t = t*1e12
-    elif t_unit=='fs':
-        t = t*1e15
-    elif t_unit=='ns':
-        t = t*1e9
-    else:
-        raise ValueError(f"t_unit must be 'fs', 'ps' or 'ns', not {t_unit!r}")
-        
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-    ax.plot(t, x)
-    ax.grid(True)
-    ax.set_xlabel('Time (' + t_unit + ')');
-    ax.set_ylabel(ylabel);
-    
-    return ax
-        
-def plot_vs_wavelength(wl, x, ylabel='', wl_unit='um', ax=None):
-    '''
-    Private function to plot stuff x vs wavelength (microns)
-    '''        
-    if wl_unit=='um':
-        wl = wl*1e6
-    elif wl_unit=='nm':
-        wl = wl*1e9
-    else:
-        raise ValueError(f"wl_unit must be 'um' or 'nm', not {wl_unit!r}")
-        
-    wl = fftshift(wl)
-    x = fftshift(x)
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-    ax.plot(wl, x)
-    ax.grid(True)
-    ax.set_xlabel('Wavelength (' + wl_unit + ')');
-    ax.set_ylabel(ylabel);
-        
-    return ax
-            
-def plot_vs_freq(f, x, ylabel='', f_unit='THz', ax=None):
-    '''
-    Private function to plot stuff x vs frequency (THz)
-    '''
-    if f_unit=='THz':
-        f = f*1e-12
-    elif f_unit=='GHz':
-        f = f*1e-9
-    elif f_unit=='PHz':
-        f = f*1e-15
-    else:
-        raise ValueError(f"f_unit must be 'GHz', 'THz' or 'PHz', not {f_unit!r}")
-        
-    f = fftshift(f)
-    x = fftshift(x)
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-    ax.plot(f, x)
-    ax.grid(True)
-    ax.set_xlabel('Frequency (' + f_unit + ')');
-    ax.set_ylabel(ylabel);
-        
-    return ax
- 
-  
-def plot_magsq(t, x, label='Pulse Intensity (W)', ax=None, t_unit='ps'):
-    '''Plot |x|^2 versus time; t_unit is 'fs', 'ps' or 'ns'. Returns the axis.'''
-    x2 = abs(x)**2
-    ax = plot_vs_time(t, x2, ylabel=label, ax=ax, t_unit=t_unit)
-    
-    return ax
-        
-def plot_PSD(t, x, frep, f0=0, ax=None, f_unit='um', dBm=True):
-    '''
-    Plot the PSD versus wavelength ('um', 'nm') or frequency ('GHz', 'THz',
-    'PHz'), in dBm/Hz or W/Hz. `f0` is the grid's reference frequency.
-    Returns the axis.
-    '''
-    
-    dt = t[1] - t[0]
-    f = fftfreq(t.size, dt) + f0
-    
-    if dBm:
-        psd = get_psd_dBm(t, x, frep)
-        label='Power Spectral Density (dBm / Hz)'
-    else:
-        psd = get_psd(t, x, frep)
-        label='Power Spectral Density (W / Hz)'
-    
-    if f_unit in ['um', 'nm']:
-        ax = plot_vs_wavelength(c/f, psd, ylabel=label, ax=ax, wl_unit=f_unit)
-    elif f_unit in ['GHz', 'THz', 'PHz']:
-        ax = plot_vs_freq(f, psd, ylabel=label, ax=ax, f_unit=f_unit)
-    else:
-        raise ValueError(f"f_unit must be 'um', 'nm', 'GHz', 'THz' or 'PHz', not {f_unit!r}")
-        
-    return ax
-    
+def _deprecated_plot(name):
+    def wrapper(*args, **kwargs):
+        warnings.warn(f'pulses.{name} is deprecated; use snow.plotting.{name}',
+                      DeprecationWarning, stacklevel=2)
+        from . import plotting
+        return getattr(plotting, name)(*args, **kwargs)
+    wrapper.__name__ = name
+    wrapper.__doc__ = f'Deprecated: use `snow.plotting.{name}`.'
+    return wrapper
+
+plot_vs_time = _deprecated_plot('plot_vs_time')
+plot_vs_wavelength = _deprecated_plot('plot_vs_wavelength')
+plot_vs_freq = _deprecated_plot('plot_vs_freq')
+plot_magsq = _deprecated_plot('plot_magsq')
+plot_PSD = _deprecated_plot('plot_PSD')
+
 def add_t_offset(pulse, t_offset):
     '''
     Shift a pulse in time by applying a linear spectral phase, in place.
@@ -580,36 +490,24 @@ class Pulse:
         return float(width*self.dt)
 
     def plot_magsq(self, label='Pulse Intensity (W)', ax=None, t_unit='ps'):
+        '''Plot |a|^2 versus time; t_unit is 'fs', 'ps' or 'ns'.'''
         t = self.t
         x = self.a
-        ax = plot_magsq(t, x, label, ax, t_unit=t_unit)
-        return ax         
+        from . import plotting
+        return plotting.plot_magsq(t, x, label, ax, t_unit=t_unit)
 
     def plot_PSD(self, ax=None, f_unit='um', dBm=True):
-        t = self.t
-        x = self.a
-        frep = self.frep
-        f0 = self.f0
-        ax = plot_PSD(t, x, frep, f0, ax, f_unit, dBm)
-        return ax
+        '''Plot the PSD versus wavelength ('um', 'nm') or frequency ('GHz', 'THz', 'PHz').'''
+        from . import plotting
+        return plotting.plot_PSD(self.t, self.a, self.frep, self.f0, ax, f_unit, dBm)
     
     def plot_spectrum(self, f_unit='um', res=None, ax=None):
-        
+        '''Plot the power (dBm) in a resolution bandwidth `res` (default: one bin).'''
+        from . import plotting
         if res is None:
             res = self.df
-        
-        f = self.f_abs
-        spectrum = self.spectrum(res)
-        label = 'Power Spectrum (dBm)'
-        
-        if f_unit in ['um', 'nm']:
-            ax = plot_vs_wavelength(c/f, spectrum, ylabel=label, ax=ax, wl_unit=f_unit)
-        elif f_unit in ['GHz', 'THz', 'PHz']:
-            ax = plot_vs_freq(f, spectrum, ylabel=label, ax=ax, f_unit=f_unit)
-        else:
-            raise ValueError(f"f_unit must be 'um', 'nm', 'GHz', 'THz' or 'PHz', not {f_unit!r}")
-        
-        return ax
+        return plotting.plot_vs_spectral(self.f_abs, self.spectrum(res),
+                                         ylabel='Power Spectrum (dBm)', f_unit=f_unit, ax=ax)
     
     def apply_filter(self, f0, bw, type='ideal'):
         '''

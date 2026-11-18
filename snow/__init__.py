@@ -12,8 +12,11 @@ Submodules imported with the package:
 
 Import explicitly when needed:
 
+- snow.plotting: plotting helpers, including plot_evolution of z snapshots
 - snow.crystals: bulk-crystal propagation
 - snow.opos:     synchronously pumped OPO simulation
+
+`import snow` does not import matplotlib; `snow.plotting` and `snow.opos` do.
 """
 
 from . import materials
